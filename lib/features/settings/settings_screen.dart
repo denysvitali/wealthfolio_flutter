@@ -127,7 +127,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (selected != null && selected != current) {
       try {
-        await widget.controller.updateSettings({'base_currency': selected});
+        await widget.controller.updateSettings({'baseCurrency': selected});
         if (mounted) {
           messenger.showSnackBar(
             SnackBar(

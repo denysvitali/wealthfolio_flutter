@@ -199,7 +199,7 @@ class NetworkWealthfolioApi implements WealthfolioApi {
     try {
       final response = await dio.post<dynamic>(
         '/auth/login',
-        data: <String, String>{'username': username, 'password': password},
+        data: <String, String>{'password': password},
       );
       _throwIfRequestFailed(response);
       final body = parseMap(response.data);
@@ -431,10 +431,10 @@ class NetworkWealthfolioApi implements WealthfolioApi {
     try {
       final body = <String, dynamic>{
         'page': page,
-        'page_size': pageSize,
-        'account_id': ?accountId,
-        'activity_type': ?activityType,
-        'asset_keyword': ?assetKeyword,
+        'pageSize': pageSize,
+        'accountIdFilter': ?accountId,
+        'activityTypeFilter': ?activityType,
+        'assetIdKeyword': ?assetKeyword,
         'sort': ?sort,
       };
       final response = await dio.post<dynamic>(

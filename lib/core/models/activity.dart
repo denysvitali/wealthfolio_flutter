@@ -39,18 +39,18 @@ class Activity {
     final map = parseMap(raw);
     return Activity(
       id: parseString(map['id']),
-      accountId: parseString(map['account_id']),
-      assetId: parseString(map['asset_id']),
-      activityType: parseString(map['activity_type']),
-      activityDate: parseString(map['activity_date']),
+      accountId: parseString(map['accountId']),
+      assetId: parseString(map['assetId']),
+      activityType: parseString(map['activityType']),
+      activityDate: parseString(map['date']),
       quantity: parseDouble(map['quantity']),
-      unitPrice: parseDouble(map['unit_price']),
+      unitPrice: parseDouble(map['unitPrice']),
       currency: parseString(map['currency']),
       fee: parseDouble(map['fee']),
-      isDraft: parseBool(map['is_draft']),
+      isDraft: parseString(map['status']) == 'DRAFT',
       comment: map['comment'] as String?,
-      createdAt: parseString(map['created_at']),
-      updatedAt: parseString(map['updated_at']),
+      createdAt: parseString(map['createdAt']),
+      updatedAt: parseString(map['updatedAt']),
     );
   }
 }
@@ -66,10 +66,11 @@ class ActivitySearchResponse {
 
   factory ActivitySearchResponse.fromJson(dynamic raw) {
     final map = parseMap(raw);
-    final rawList = parseList(map['activities']);
+    final rawList = parseList(map['data']);
+    final meta = parseMap(map['meta']);
     return ActivitySearchResponse(
       activities: rawList.map(Activity.fromJson).toList(),
-      total: parseInt(map['total']),
+      total: parseInt(meta['totalRowCount']),
     );
   }
 }

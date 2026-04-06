@@ -5,18 +5,18 @@ void main() {
   group('Activity.fromJson', () {
     final validJson = <String, dynamic>{
       'id': 'act-1',
-      'account_id': 'acc-1',
-      'asset_id': 'AAPL',
-      'activity_type': 'BUY',
-      'activity_date': '2024-03-15',
+      'accountId': 'acc-1',
+      'assetId': 'AAPL',
+      'activityType': 'BUY',
+      'date': '2024-03-15',
       'quantity': 10.0,
-      'unit_price': 175.50,
+      'unitPrice': 175.50,
       'currency': 'USD',
       'fee': 0.99,
-      'is_draft': false,
+      'status': 'POSTED',
       'comment': 'Regular purchase',
-      'created_at': '2024-03-15T10:00:00Z',
-      'updated_at': '2024-03-15T10:00:00Z',
+      'createdAt': '2024-03-15T10:00:00Z',
+      'updatedAt': '2024-03-15T10:00:00Z',
     };
 
     test('parses a complete valid activity', () {
@@ -38,13 +38,21 @@ void main() {
     test('parses quantity and price from string values', () {
       final json = Map<String, dynamic>.from(validJson)
         ..['quantity'] = '5'
-        ..['unit_price'] = '200.00'
+        ..['unitPrice'] = '200.00'
         ..['fee'] = '1';
 
       final activity = Activity.fromJson(json);
       expect(activity.quantity, 5.0);
       expect(activity.unitPrice, 200.0);
       expect(activity.fee, 1.0);
+    });
+
+    test('recognizes DRAFT status', () {
+      final json = Map<String, dynamic>.from(validJson)
+        ..['status'] = 'DRAFT';
+
+      final activity = Activity.fromJson(json);
+      expect(activity.isDraft, true);
     });
 
     test('defaults numeric fields to 0.0 when absent', () {
@@ -64,25 +72,27 @@ void main() {
   });
 
   group('ActivitySearchResponse.fromJson', () {
-    test('parses activities list and total', () {
+    test('parses activities list and totalRowCount from nested meta', () {
       final json = <String, dynamic>{
-        'activities': [
+        'data': [
           <String, dynamic>{
             'id': 'act-1',
-            'account_id': 'acc-1',
-            'asset_id': 'AAPL',
-            'activity_type': 'BUY',
-            'activity_date': '2024-03-15',
+            'accountId': 'acc-1',
+            'assetId': 'AAPL',
+            'activityType': 'BUY',
+            'date': '2024-03-15',
             'quantity': 10.0,
-            'unit_price': 175.50,
+            'unitPrice': 175.50,
             'currency': 'USD',
             'fee': 0.0,
-            'is_draft': false,
-            'created_at': '',
-            'updated_at': '',
+            'status': 'POSTED',
+            'createdAt': '',
+            'updatedAt': '',
           },
         ],
-        'total': 1,
+        'meta': <String, dynamic>{
+          'totalRowCount': 1,
+        },
       };
 
       final response = ActivitySearchResponse.fromJson(json);

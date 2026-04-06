@@ -22,10 +22,10 @@ class Settings {
   factory Settings.fromJson(dynamic raw) {
     final map = parseMap(raw);
     return Settings(
-      id: parseString(map['id']),
+      id: parseString(map['instanceId']),
       theme: parseString(map['theme'], fallback: 'system'),
       font: parseString(map['font'], fallback: 'inter'),
-      baseCurrency: parseString(map['base_currency'], fallback: 'USD'),
+      baseCurrency: parseString(map['baseCurrency'], fallback: 'USD'),
     );
   }
 }

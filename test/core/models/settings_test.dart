@@ -5,10 +5,10 @@ void main() {
   group('Settings.fromJson', () {
     test('parses a valid settings map', () {
       final json = <String, dynamic>{
-        'id': 'settings-1',
+        'instanceId': 'settings-1',
         'theme': 'dark',
         'font': 'inter',
-        'base_currency': 'EUR',
+        'baseCurrency': 'EUR',
       };
 
       final settings = Settings.fromJson(json);
@@ -19,7 +19,7 @@ void main() {
     });
 
     test('uses sensible defaults when fields are absent', () {
-      final settings = Settings.fromJson(<String, dynamic>{'id': 'x'});
+      final settings = Settings.fromJson(<String, dynamic>{'instanceId': 'x'});
       expect(settings.theme, 'system');
       expect(settings.font, 'inter');
       expect(settings.baseCurrency, 'USD');
