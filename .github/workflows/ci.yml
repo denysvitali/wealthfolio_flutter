@@ -231,11 +231,22 @@ jobs:
         run: devenv shell -- flutter pub get
 
       - name: Decode keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "${{ github.workspace }}/upload-keystore.p12"
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "ERROR: One or more keystore secrets are not set."
+            echo "Go to GitHub → Settings → Secrets and variables → Actions → New repository secret"
+            echo "Required secrets: KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_PASSWORD"
+            echo "Run 'devenv shell -- bash scripts/generate_keystore.sh' to generate them."
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "${{ github.workspace }}/upload-keystore.p12"
           cat > android/key.properties <<EOF
-          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
-          keyPassword=${{ secrets.KEY_PASSWORD }}
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
           keyAlias=upload
           storeFile=${{ github.workspace }}/upload-keystore.p12
           EOF
