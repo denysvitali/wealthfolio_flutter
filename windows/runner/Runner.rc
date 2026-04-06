@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "it.denv" "\0"
-            VALUE "FileDescription", "argocd_flutter" "\0"
+            VALUE "FileDescription", "wealthfolio" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "argocd_flutter" "\0"
+            VALUE "InternalName", "wealthfolio" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 it.denv. All rights reserved." "\0"
-            VALUE "OriginalFilename", "argocd_flutter.exe" "\0"
-            VALUE "ProductName", "argocd_flutter" "\0"
+            VALUE "OriginalFilename", "wealthfolio.exe" "\0"
+            VALUE "ProductName", "wealthfolio" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
