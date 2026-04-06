@@ -231,8 +231,11 @@ jobs:
         run: devenv shell -- flutter pub get
 
       - name: Decode keystore
+        if: env.KEYSTORE_BASE64 != ''
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "${{ github.workspace }}/upload-keystore.p12"
+          echo "$KEYSTORE_BASE64" | base64 -d > "${{ github.workspace }}/upload-keystore.p12"
           cat > android/key.properties <<EOF
           storePassword=${{ secrets.KEYSTORE_PASSWORD }}
           keyPassword=${{ secrets.KEY_PASSWORD }}
@@ -242,6 +245,8 @@ jobs:
           sed -i 's/^[[:space:]]*//' android/key.properties
 
       - name: Build Release APK
+        id: build_apk
+        continue-on-error: true
         run: |
           SENTRY_RELEASE="wealthfolio_flutter@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }}"
           devenv shell -- flutter build apk --release --no-pub \
@@ -252,7 +257,7 @@ jobs:
             --obfuscate
 
       - name: Upload Sentry debug symbols
-        if: env.SENTRY_AUTH_TOKEN != ''
+        if: steps.build_apk.outcome == 'success' && env.SENTRY_AUTH_TOKEN != ''
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_RELEASE: wealthfolio_flutter@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }}
@@ -260,6 +265,7 @@ jobs:
         run: devenv shell -- flutter pub run sentry_dart_plugin
 
       - name: Upload Release APK
+        if: steps.build_apk.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: wealthfolio-flutter-release-b${{ steps.build_meta.outputs.BUILD_NUMBER }}
@@ -267,6 +273,7 @@ jobs:
           retention-days: 14
 
       - name: Determine release version
+        if: steps.build_apk.outcome == 'success'
         id: release_version
         run: |
           SEMVER=$(grep '^version:' pubspec.yaml | sed 's/version: *//' | cut -d'+' -f1 | tr -d ' ')
@@ -275,6 +282,7 @@ jobs:
           echo "RELEASE_TAG=$RELEASE_TAG" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
+        if: steps.build_apk.outcome == 'success'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.release_version.outputs.RELEASE_TAG }}
@@ -337,13 +345,17 @@ jobs:
           path: build/web
 
       - name: Setup Pages
+        continue-on-error: true
+        id: setup_pages
         uses: actions/configure-pages@v4
 
       - name: Upload to GitHub Pages
+        if: steps.setup_pages.outcome == 'success'
         uses: actions/upload-pages-artifact@v3
         with:
           path: build/web
 
       - name: Deploy to GitHub Pages
+        if: steps.setup_pages.outcome == 'success'
         id: deployment
         uses: actions/deploy-pages@v4
