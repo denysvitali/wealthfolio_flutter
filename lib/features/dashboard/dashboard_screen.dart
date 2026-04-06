@@ -421,7 +421,7 @@ class _AccountsList extends StatelessWidget {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: accounts.length,
-        separatorBuilder: (_, _x) => const Divider(height: 1),
+        separatorBuilder: (context, index) => const Divider(height: 1),
         itemBuilder: (context, index) {
           final account = accounts[index];
           return _AccountTile(
@@ -592,7 +592,7 @@ class _TopHoldingsList extends StatelessWidget {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: holdings.length,
-        separatorBuilder: (_, __) => const Divider(height: 1),
+        separatorBuilder: (context, index) => const Divider(height: 1),
         itemBuilder: (context, index) => _HoldingTile(
           holding: holdings[index],
           currency: currency,
