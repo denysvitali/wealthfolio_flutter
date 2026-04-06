@@ -39,18 +39,21 @@ class Activity {
     final map = parseMap(raw);
     return Activity(
       id: parseString(map['id']),
-      accountId: parseString(map['accountId']),
-      assetId: parseString(map['assetId']),
-      activityType: parseString(map['activityType']),
-      activityDate: parseString(map['date']),
+      accountId: parseString(map['accountId'] ?? map['account_id']),
+      assetId: parseString(
+        map['assetId'] ?? map['asset_id'] ?? map['symbol'],
+      ),
+      activityType: parseString(map['activityType'] ?? map['activity_type']),
+      activityDate: parseString(map['date'] ?? map['activityDate'] ?? map['activity_date']),
       quantity: parseDouble(map['quantity']),
-      unitPrice: parseDouble(map['unitPrice']),
+      unitPrice: parseDouble(map['unitPrice'] ?? map['unit_price']),
       currency: parseString(map['currency']),
       fee: parseDouble(map['fee']),
-      isDraft: parseString(map['status']) == 'DRAFT',
+      isDraft: parseBool(map['isDraft'] ?? map['is_draft']) ||
+          parseString(map['status']).toUpperCase() == 'DRAFT',
       comment: map['comment'] as String?,
-      createdAt: parseString(map['createdAt']),
-      updatedAt: parseString(map['updatedAt']),
+      createdAt: parseString(map['createdAt'] ?? map['created_at']),
+      updatedAt: parseString(map['updatedAt'] ?? map['updated_at']),
     );
   }
 }

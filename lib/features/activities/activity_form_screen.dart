@@ -9,6 +9,29 @@ import 'package:wealthfolio_flutter/ui/app_colors.dart';
 import 'package:wealthfolio_flutter/ui/design_tokens.dart';
 import 'package:wealthfolio_flutter/ui/shared_widgets.dart';
 
+class _SymbolSuggestion {
+  const _SymbolSuggestion({
+    required this.symbol,
+    required this.name,
+    this.assetId,
+    this.assetType,
+  });
+
+  final String symbol;
+  final String name;
+  final String? assetId;
+  final String? assetType;
+
+  factory _SymbolSuggestion.fromMap(Map<String, dynamic> map) {
+    return _SymbolSuggestion(
+      symbol: (map['symbol'] ?? map['ticker'] ?? '').toString().toUpperCase(),
+      name: (map['name'] ?? map['description'] ?? '').toString(),
+      assetId: (map['asset_id'] ?? map['assetId'] ?? map['id'])?.toString(),
+      assetType: (map['asset_type'] ?? map['assetType'] ?? map['type'])?.toString(),
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Activity types definition
 // ---------------------------------------------------------------------------
@@ -109,6 +132,9 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
   late TextEditingController _commentController;
   late bool _isDraft;
   String? _selectedAccountId;
+  Timer? _symbolSearchDebounce;
+  List<_SymbolSuggestion> _symbolSuggestions = const <_SymbolSuggestion>[];
+  bool _searchingSymbols = false;
 
   // ── Async state ───────────────────────────────────────────────────────────
   bool _submitting = false;
@@ -160,6 +186,7 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
 
   @override
   void dispose() {
+    _symbolSearchDebounce?.cancel();
     _assetIdController.dispose();
     _quantityController.dispose();
     _unitPriceController.dispose();
@@ -205,6 +232,54 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
 
   double _parseField(String text, {double fallback = 0}) =>
       double.tryParse(text.trim()) ?? fallback;
+
+  bool get _activityNeedsAsset {
+    switch (_activityType) {
+      case 'DEPOSIT':
+      case 'WITHDRAWAL':
+      case 'TRANSFER_IN':
+      case 'TRANSFER_OUT':
+      case 'FEE':
+      case 'TAX':
+        return false;
+      default:
+        return true;
+    }
+  }
+
+  void _onAssetQueryChanged(String value) {
+    _symbolSearchDebounce?.cancel();
+    final query = value.trim();
+    if (!_activityNeedsAsset || query.length < 2) {
+      setState(() {
+        _symbolSuggestions = const <_SymbolSuggestion>[];
+        _searchingSymbols = false;
+      });
+      return;
+    }
+    setState(() => _searchingSymbols = true);
+    _symbolSearchDebounce = Timer(const Duration(milliseconds: 250), () async {
+      try {
+        final results = await widget.controller.searchSymbols(query);
+        if (!mounted || _assetIdController.text.trim() != query) return;
+        final suggestions = results
+            .map(_SymbolSuggestion.fromMap)
+            .where((item) => item.symbol.isNotEmpty)
+            .take(8)
+            .toList(growable: false);
+        setState(() {
+          _symbolSuggestions = suggestions;
+          _searchingSymbols = false;
+        });
+      } on Exception {
+        if (!mounted) return;
+        setState(() {
+          _symbolSuggestions = const <_SymbolSuggestion>[];
+          _searchingSymbols = false;
+        });
+      }
+    });
+  }
 
   // -------------------------------------------------------------------------
   // Date picker
@@ -258,15 +333,16 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
     try {
       final data = <String, dynamic>{
         if (_isEditing) 'id': widget.activity!.id,
-        'accountId': _selectedAccountId,
-        'assetId': _assetIdController.text.trim().toUpperCase(),
-        'activityType': _activityType,
-        'activityDate': _dateToApiStr(_activityDate),
+        'account_id': _selectedAccountId,
+        if (_activityNeedsAsset)
+          'symbol': _assetIdController.text.trim().toUpperCase(),
+        'activity_type': _activityType,
+        'activity_date': _dateToApiStr(_activityDate),
         'quantity': _parseField(_quantityController.text),
-        'unitPrice': _parseField(_unitPriceController.text),
+        'unit_price': _parseField(_unitPriceController.text),
         'currency': _currencyController.text.trim().toUpperCase(),
         'fee': _parseField(_feeController.text),
-        'isDraft': _isDraft,
+        'is_draft': _isDraft,
         'comment': _commentController.text.trim().isEmpty
             ? null
             : _commentController.text.trim(),
@@ -398,7 +474,12 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
               label: 'Activity Type',
               child: _ActivityTypeSelector(
                 selected: _activityType,
-                onChanged: (v) => setState(() => _activityType = v),
+                onChanged: (v) => setState(() {
+                  _activityType = v;
+                  if (!_activityNeedsAsset) {
+                    _symbolSuggestions = const <_SymbolSuggestion>[];
+                  }
+                }),
               ),
             ),
             const SizedBox(height: AppSpacing.xl),
@@ -417,24 +498,53 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
             const SizedBox(height: AppSpacing.xl),
 
             // ── Asset symbol ───────────────────────────────────────────
-            _FormSection(
-              label: 'Asset Symbol',
-              child: TextFormField(
-                controller: _assetIdController,
-                textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(
-                  hintText: 'e.g. AAPL, BTC, EUR',
-                  prefixIcon: Icon(Icons.search, size: AppIconSize.md),
+            if (_activityNeedsAsset) ...[
+              _FormSection(
+                label: 'Asset Symbol',
+                child: Column(
+                  children: [
+                    TextFormField(
+                      controller: _assetIdController,
+                      textCapitalization: TextCapitalization.characters,
+                      onChanged: _onAssetQueryChanged,
+                      decoration: InputDecoration(
+                        hintText: 'e.g. AAPL, BTC, EUR',
+                        prefixIcon: const Icon(Icons.search, size: AppIconSize.md),
+                        suffixIcon: _searchingSymbols
+                            ? const Padding(
+                                padding: EdgeInsets.all(12),
+                                child: SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              )
+                            : null,
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Asset symbol is required.';
+                        }
+                        return null;
+                      },
+                    ),
+                    if (_symbolSuggestions.isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      _SymbolSuggestionList(
+                        suggestions: _symbolSuggestions,
+                        onSelected: (suggestion) {
+                          setState(() {
+                            _assetIdController.text = suggestion.symbol;
+                            _symbolSuggestions = const <_SymbolSuggestion>[];
+                          });
+                        },
+                      ),
+                    ],
+                  ],
                 ),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) {
-                    return 'Asset symbol is required.';
-                  }
-                  return null;
-                },
               ),
-            ),
-            const SizedBox(height: AppSpacing.xl),
+              const SizedBox(height: AppSpacing.xl),
+            ],
 
             // ── Date ───────────────────────────────────────────────────
             _FormSection(
@@ -595,6 +705,66 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SymbolSuggestionList extends StatelessWidget {
+  const _SymbolSuggestionList({
+    required this.suggestions,
+    required this.onSelected,
+  });
+
+  final List<_SymbolSuggestion> suggestions;
+  final ValueChanged<_SymbolSuggestion> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: AppRadius.base,
+        border: Border.all(color: AppColors.outline(theme)),
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < suggestions.length; i++) ...[
+            ListTile(
+              dense: true,
+              leading: CircleAvatar(
+                radius: 16,
+                backgroundColor: AppColors.blue.withValues(alpha: 0.10),
+                child: Text(
+                  suggestions[i].symbol.length > 2
+                      ? suggestions[i].symbol.substring(0, 2)
+                      : suggestions[i].symbol,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.blue,
+                  ),
+                ),
+              ),
+              title: Text(
+                suggestions[i].symbol,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: Text(
+                [
+                  if (suggestions[i].name.isNotEmpty) suggestions[i].name,
+                  if ((suggestions[i].assetType ?? '').isNotEmpty)
+                    suggestions[i].assetType!,
+                ].join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              onTap: () => onSelected(suggestions[i]),
+            ),
+            if (i != suggestions.length - 1)
+              Divider(height: 1, color: AppColors.outline(theme)),
+          ],
+        ],
       ),
     );
   }

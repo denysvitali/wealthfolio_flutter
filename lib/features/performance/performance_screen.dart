@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wealthfolio_flutter/core/models/holding.dart';
+import 'package:wealthfolio_flutter/core/models/performance.dart';
 import 'package:wealthfolio_flutter/core/services/app_controller.dart';
 import 'package:wealthfolio_flutter/core/utils/currency_format.dart';
 import 'package:wealthfolio_flutter/ui/app_colors.dart';
@@ -36,10 +37,52 @@ class PerformanceScreen extends StatefulWidget {
 
 class _PerformanceScreenState extends State<PerformanceScreen> {
   _TimeRange _selectedRange = _TimeRange.all;
+  List<PerformanceHistory> _history = const <PerformanceHistory>[];
+  bool _loadingHistory = true;
+  String? _historyError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  @override
+  void didUpdateWidget(covariant PerformanceScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      _loadHistory();
+    }
+  }
+
+  Future<void> _loadHistory() async {
+    setState(() {
+      _loadingHistory = true;
+      _historyError = null;
+    });
+    try {
+      final history = await widget.controller.fetchPerformanceHistory(
+        itemType: 'portfolio',
+        itemId: 'portfolio',
+      );
+      if (!mounted) return;
+      setState(() {
+        _history = history;
+        _loadingHistory = false;
+      });
+    } on Exception catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _historyError = e.toString();
+        _loadingHistory = false;
+      });
+    }
+  }
 
   Future<void> _refresh() => Future.wait<void>([
         widget.controller.refreshAccounts(showSpinner: false),
         widget.controller.refreshHoldings(showSpinner: false),
+        _loadHistory(),
       ]);
 
   @override
@@ -72,6 +115,9 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
             holdings: widget.controller.holdings,
             currency: widget.controller.baseCurrency,
             selectedRange: _selectedRange,
+            history: _history,
+            loadingHistory: _loadingHistory,
+            historyError: _historyError,
             onRangeChanged: (r) => setState(() => _selectedRange = r),
             onRefresh: _refresh,
           ),
@@ -108,6 +154,9 @@ class _PerformanceContent extends StatelessWidget {
     required this.holdings,
     required this.currency,
     required this.selectedRange,
+    required this.history,
+    required this.loadingHistory,
+    required this.historyError,
     required this.onRangeChanged,
     required this.onRefresh,
   });
@@ -115,6 +164,9 @@ class _PerformanceContent extends StatelessWidget {
   final List<Holding> holdings;
   final String currency;
   final _TimeRange selectedRange;
+  final List<PerformanceHistory> history;
+  final bool loadingHistory;
+  final String? historyError;
   final ValueChanged<_TimeRange> onRangeChanged;
   final Future<void> Function() onRefresh;
 
@@ -155,6 +207,12 @@ class _PerformanceContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final metrics = _computeMetrics(holdings);
     final sorted = _sortedHoldings(holdings);
+    final chartPoints = _filterHistory(history).map((item) {
+      return SimpleLineChartPoint(
+        date: DateTime.tryParse(item.date) ?? DateTime.now(),
+        value: item.value,
+      );
+    }).toList(growable: false);
 
     return RefreshIndicator(
       onRefresh: onRefresh,
@@ -183,8 +241,39 @@ class _PerformanceContent extends StatelessWidget {
           ),
 
           // Chart placeholder
-          SliverToBoxAdapter(
-            child: _ChartPlaceholder(gain: metrics.totalGain),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+            sliver: SliverToBoxAdapter(
+              child: loadingHistory
+                  ? const SectionCard(
+                      child: SizedBox(
+                        height: 200,
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                    )
+                  : historyError != null
+                      ? SectionCard(
+                          child: SizedBox(
+                            height: 200,
+                            child: Center(
+                              child: Text(
+                                historyError!,
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                        )
+                      : SimpleLineChartCard(
+                          title: 'Performance Chart',
+                          color: metrics.totalGain >= 0
+                              ? AppColors.gain
+                              : AppColors.loss,
+                          height: 200,
+                          points: chartPoints,
+                          valueFormatter: (value) =>
+                              formatCurrency(value, currency: currency),
+                        ),
+            ),
           ),
 
           // Section header: holdings table
@@ -231,6 +320,23 @@ class _PerformanceContent extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  List<PerformanceHistory> _filterHistory(List<PerformanceHistory> items) {
+    if (items.isEmpty) return items;
+    final now = DateTime.now();
+    final cutoff = switch (selectedRange) {
+      _TimeRange.oneMonth => now.subtract(const Duration(days: 30)),
+      _TimeRange.threeMonths => now.subtract(const Duration(days: 90)),
+      _TimeRange.sixMonths => now.subtract(const Duration(days: 180)),
+      _TimeRange.oneYear => DateTime(now.year - 1, now.month, now.day),
+      _TimeRange.all => null,
+    };
+    if (cutoff == null) return items;
+    return items.where((item) {
+      final date = DateTime.tryParse(item.date);
+      return date != null && !date.isBefore(cutoff);
+    }).toList(growable: false);
   }
 }
 
@@ -394,155 +500,6 @@ class _SummaryGrid extends StatelessWidget {
       ],
     );
   }
-}
-
-// ---------------------------------------------------------------------------
-// Chart placeholder
-// ---------------------------------------------------------------------------
-
-class _ChartPlaceholder extends StatelessWidget {
-  const _ChartPlaceholder({required this.gain});
-
-  final double gain;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isPositive = gain >= 0;
-    final lineColor = isPositive ? AppColors.gain : AppColors.loss;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.xl,
-        AppSpacing.xl,
-        AppSpacing.xl,
-        0,
-      ),
-      child: SectionCard(
-        padding: EdgeInsets.zero,
-        child: ClipRRect(
-          borderRadius: AppRadius.base,
-          child: SizedBox(
-            height: 200,
-            child: Stack(
-              children: [
-                // Gradient fill
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        lineColor.withValues(alpha: 0.15),
-                        lineColor.withValues(alpha: 0.02),
-                      ],
-                    ),
-                  ),
-                ),
-                // Decorative sparkline
-                CustomPaint(
-                  size: const Size(double.infinity, 200),
-                  painter: _SparklinePainter(
-                    color: lineColor,
-                    positive: isPositive,
-                  ),
-                ),
-                // Label row at top
-                Positioned(
-                  top: AppSpacing.xl,
-                  left: AppSpacing.xl,
-                  child: Text(
-                    'Performance Chart',
-                    style: TextStyle(
-                      fontFamily: 'SpaceGrotesk',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-                // Coming soon badge
-                Positioned(
-                  bottom: AppSpacing.xl,
-                  right: AppSpacing.xl,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.lg,
-                      vertical: AppSpacing.sm,
-                    ),
-                    decoration: BoxDecoration(
-                      color: lineColor.withValues(alpha: 0.12),
-                      borderRadius: AppRadius.pill,
-                      border: Border.all(
-                        color: lineColor.withValues(alpha: 0.25),
-                      ),
-                    ),
-                    child: Text(
-                      'Chart coming soon',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: lineColor,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SparklinePainter extends CustomPainter {
-  const _SparklinePainter({required this.color, required this.positive});
-
-  final Color color;
-  final bool positive;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final linePaint = Paint()
-      ..color = color.withValues(alpha: 0.7)
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    // Decorative data points (not real data) — normalized [x, y]
-    final pts = positive
-        ? <double>[
-            0.02, 0.78, 0.10, 0.68, 0.18, 0.72, 0.26, 0.60, 0.34, 0.52,
-            0.42, 0.55, 0.50, 0.44, 0.58, 0.38, 0.66, 0.42, 0.74, 0.30,
-            0.82, 0.25, 0.90, 0.28, 0.98, 0.18,
-          ]
-        : <double>[
-            0.02, 0.22, 0.10, 0.28, 0.18, 0.24, 0.26, 0.36, 0.34, 0.42,
-            0.42, 0.38, 0.50, 0.48, 0.58, 0.55, 0.66, 0.52, 0.74, 0.62,
-            0.82, 0.68, 0.90, 0.65, 0.98, 0.74,
-          ];
-
-    final path = Path();
-    for (var i = 0; i < pts.length - 1; i += 2) {
-      final x = pts[i] * size.width;
-      final y = pts[i + 1] * size.height;
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        final prevX = pts[i - 2] * size.width;
-        final prevY = pts[i - 1] * size.height;
-        final cpX = (prevX + x) / 2;
-        path.cubicTo(cpX, prevY, cpX, y, x, y);
-      }
-    }
-    canvas.drawPath(path, linePaint);
-  }
-
-  @override
-  bool shouldRepaint(_SparklinePainter old) =>
-      old.color != color || old.positive != positive;
 }
 
 // ---------------------------------------------------------------------------

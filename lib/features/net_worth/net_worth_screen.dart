@@ -21,6 +21,7 @@ class NetWorthScreen extends StatefulWidget {
 
 class _NetWorthScreenState extends State<NetWorthScreen> {
   NetWorthResponse? _data;
+  List<NetWorthHistoryPoint> _history = const <NetWorthHistoryPoint>[];
   bool _loading = true;
   String? _error;
 
@@ -37,10 +38,21 @@ class _NetWorthScreenState extends State<NetWorthScreen> {
     });
 
     try {
-      final result = await widget.controller.fetchNetWorth();
+      final now = DateTime.now();
+      final start = DateTime(now.year - 1, now.month, now.day);
+      final futures = await Future.wait<dynamic>([
+        widget.controller.fetchNetWorth(),
+        widget.controller.fetchNetWorthHistory(
+          startDate: _toApiDate(start),
+          endDate: _toApiDate(now),
+        ),
+      ]);
+      final result = futures[0] as NetWorthResponse;
+      final history = futures[1] as List<NetWorthHistoryPoint>;
       if (!mounted) return;
       setState(() {
         _data = result;
+        _history = history;
         _loading = false;
       });
     } on Exception catch (e) {
@@ -51,6 +63,11 @@ class _NetWorthScreenState extends State<NetWorthScreen> {
       });
     }
   }
+
+  String _toApiDate(DateTime value) =>
+      '${value.year.toString().padLeft(4, '0')}-'
+      '${value.month.toString().padLeft(2, '0')}-'
+      '${value.day.toString().padLeft(2, '0')}';
 
   @override
   Widget build(BuildContext context) {
@@ -187,41 +204,16 @@ class _NetWorthScreenState extends State<NetWorthScreen> {
         // -----------------------------------------------------------------
         // Chart placeholder
         // -----------------------------------------------------------------
-        SectionCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Net Worth History',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              Container(
-                height: 160,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.blue.withValues(alpha: 0.05),
-                      AppColors.blue.withValues(alpha: 0.02),
-                    ],
-                  ),
-                  borderRadius: AppRadius.base,
-                ),
-                child: Center(
-                  child: Text(
-                    'Chart coming soon',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppColors.mutedText(theme),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+        SimpleLineChartCard(
+          title: 'Net Worth History',
+          color: AppColors.blue,
+          points: _history
+              .map((item) => SimpleLineChartPoint(
+                    date: DateTime.tryParse(item.date) ?? DateTime.now(),
+                    value: item.total,
+                  ))
+              .toList(growable: false),
+          valueFormatter: (value) => formatCurrency(value, currency: currency),
         ),
         const SizedBox(height: AppSpacing.huge),
       ],

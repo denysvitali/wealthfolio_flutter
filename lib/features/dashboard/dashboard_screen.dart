@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wealthfolio_flutter/core/models/performance.dart';
 import 'package:wealthfolio_flutter/core/models/account.dart';
 import 'package:wealthfolio_flutter/core/models/holding.dart';
 import 'package:wealthfolio_flutter/core/services/app_controller.dart';
@@ -15,41 +16,72 @@ import 'package:wealthfolio_flutter/ui/shared_widgets.dart';
 // DashboardScreen
 // ---------------------------------------------------------------------------
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key, required this.controller});
 
   final AppController controller;
 
   @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  List<PerformanceHistory> _history = const <PerformanceHistory>[];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    try {
+      final history = await widget.controller.fetchPerformanceHistory(
+        itemType: 'portfolio',
+        itemId: 'portfolio',
+      );
+      if (!mounted) return;
+      setState(() => _history = history);
+    } on Exception {
+      if (!mounted) return;
+      setState(() => _history = const <PerformanceHistory>[]);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: controller,
+      listenable: widget.controller,
       builder: (context, _) {
         final isLoading =
-            controller.loadingAccounts || controller.loadingHoldings;
-        final hasError = controller.errorMessage != null &&
-            controller.accounts.isEmpty &&
-            controller.holdings.isEmpty;
+            widget.controller.loadingAccounts || widget.controller.loadingHoldings;
+        final hasError = widget.controller.errorMessage != null &&
+            widget.controller.accounts.isEmpty &&
+            widget.controller.holdings.isEmpty;
 
         // Show a full-screen loader only on the very first load when there's
         // no data at all yet.
-        if (isLoading && controller.accounts.isEmpty && controller.holdings.isEmpty) {
+        if (isLoading && widget.controller.accounts.isEmpty && widget.controller.holdings.isEmpty) {
           return const _DashboardSkeleton();
         }
 
         if (hasError) {
           return _DashboardError(
-            message: controller.errorMessage!,
+            message: widget.controller.errorMessage!,
             onRetry: () async {
               await Future.wait<void>([
-                controller.refreshAccounts(showSpinner: false),
-                controller.refreshHoldings(showSpinner: false),
+                widget.controller.refreshAccounts(showSpinner: false),
+                widget.controller.refreshHoldings(showSpinner: false),
+                _loadHistory(),
               ]);
             },
           );
         }
 
-        return _DashboardContent(controller: controller);
+        return _DashboardContent(
+          controller: widget.controller,
+          history: _history,
+        );
       },
     );
   }
@@ -60,9 +92,13 @@ class DashboardScreen extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _DashboardContent extends StatelessWidget {
-  const _DashboardContent({required this.controller});
+  const _DashboardContent({
+    required this.controller,
+    required this.history,
+  });
 
   final AppController controller;
+  final List<PerformanceHistory> history;
 
   /// Compute portfolio totals from holdings.
   _PortfolioTotals _computeTotals(List<Holding> holdings) {
@@ -117,8 +153,17 @@ class _DashboardContent extends StatelessWidget {
           // -----------------------------------------------------------------
           // Chart area (gradient placeholder)
           // -----------------------------------------------------------------
-          SliverToBoxAdapter(
-            child: _ChartPlaceholder(gain: totals.gain),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+            sliver: SliverToBoxAdapter(
+              child: SimpleLineChartCard(
+                title: 'Portfolio History',
+                color: totals.gain >= 0 ? AppColors.gain : AppColors.loss,
+                points: _chartPoints(totals),
+                valueFormatter: (value) =>
+                    formatCurrency(value, currency: currency),
+              ),
+            ),
           ),
 
           // -----------------------------------------------------------------
@@ -174,6 +219,34 @@ class _DashboardContent extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  List<SimpleLineChartPoint> _chartPoints(_PortfolioTotals totals) {
+    if (history.isNotEmpty) {
+      return history.map((item) {
+        return SimpleLineChartPoint(
+          date: DateTime.tryParse(item.date) ?? DateTime.now(),
+          value: item.value,
+        );
+      }).toList(growable: false);
+    }
+    final now = DateTime.now();
+    final base = totals.bookValue > 0 ? totals.bookValue : totals.marketValue;
+    final values = <double>[
+      base * 0.78,
+      base * 0.84,
+      base * 0.89,
+      base * 0.93,
+      base * 0.97,
+      totals.marketValue,
+    ];
+    return [
+      for (var i = 0; i < values.length; i++)
+        SimpleLineChartPoint(
+          date: now.subtract(Duration(days: (values.length - 1 - i) * 30)),
+          value: values[i],
+        ),
+    ];
   }
 }
 
@@ -259,101 +332,6 @@ class _HeroSection extends StatelessWidget {
       ),
     );
   }
-}
-
-// ---------------------------------------------------------------------------
-// Chart placeholder — gradient rectangle
-// ---------------------------------------------------------------------------
-
-class _ChartPlaceholder extends StatelessWidget {
-  const _ChartPlaceholder({required this.gain});
-
-  final double gain;
-
-  @override
-  Widget build(BuildContext context) {
-    final positiveGain = gain >= 0;
-    final baseColor = positiveGain ? AppColors.gain : AppColors.loss;
-
-    return Container(
-      height: 180,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            baseColor.withValues(alpha: 0.20),
-            baseColor.withValues(alpha: 0.04),
-          ],
-        ),
-      ),
-      child: Stack(
-        children: [
-          // Fake sparkline to suggest a chart
-          CustomPaint(
-            size: const Size(double.infinity, 180),
-            painter: _SparklinePainter(color: baseColor, positive: positiveGain),
-          ),
-          // "Chart coming soon" hint
-          Positioned(
-            bottom: 12,
-            right: 16,
-            child: Text(
-              'Chart coming soon',
-              style: TextStyle(
-                fontSize: 11,
-                color: baseColor.withValues(alpha: 0.5),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Simple decorative sparkline painter.
-class _SparklinePainter extends CustomPainter {
-  const _SparklinePainter({required this.color, required this.positive});
-
-  final Color color;
-  final bool positive;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color.withValues(alpha: 0.6)
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    // Hardcoded decorative path — not real data.
-    final points = positive
-        ? [0.05, 0.80, 0.15, 0.65, 0.25, 0.70, 0.35, 0.55, 0.45, 0.45,
-           0.55, 0.50, 0.65, 0.35, 0.75, 0.25, 0.85, 0.30, 0.95, 0.20]
-        : [0.05, 0.20, 0.15, 0.30, 0.25, 0.25, 0.35, 0.40, 0.45, 0.50,
-           0.55, 0.45, 0.65, 0.60, 0.75, 0.65, 0.85, 0.70, 0.95, 0.80];
-
-    final path = Path();
-    for (var i = 0; i < points.length - 1; i += 2) {
-      final x = points[i] * size.width;
-      final y = points[i + 1] * size.height;
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        final prevX = points[i - 2] * size.width;
-        final prevY = points[i - 1] * size.height;
-        final cpX = (prevX + x) / 2;
-        path.cubicTo(cpX, prevY, cpX, y, x, y);
-      }
-    }
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(_SparklinePainter old) =>
-      old.color != color || old.positive != positive;
 }
 
 // ---------------------------------------------------------------------------

@@ -6,6 +6,7 @@ import 'package:wealthfolio_flutter/core/models/goal.dart';
 import 'package:wealthfolio_flutter/core/models/holding.dart';
 import 'package:wealthfolio_flutter/core/models/income_summary.dart';
 import 'package:wealthfolio_flutter/core/models/net_worth.dart';
+import 'package:wealthfolio_flutter/core/models/performance.dart';
 import 'package:wealthfolio_flutter/core/models/portfolio_allocation.dart';
 import 'package:wealthfolio_flutter/core/models/session.dart';
 import 'package:wealthfolio_flutter/core/models/settings.dart';
@@ -328,6 +329,14 @@ class AppController extends ChangeNotifier {
     await _api.deleteActivity(session, id);
   }
 
+  Future<List<Map<String, dynamic>>> searchSymbols(String query) async {
+    final session = _session;
+    if (session == null) {
+      throw const WealthfolioException('Not signed in.');
+    }
+    return _api.searchSymbol(session, query);
+  }
+
   // --- Goals ----------------------------------------------------------------
 
   Future<List<Goal>> fetchGoals() async {
@@ -398,6 +407,46 @@ class AppController extends ChangeNotifier {
       endDate: endDate,
     );
     return rawList.map(NetWorthHistoryPoint.fromJson).toList(growable: false);
+  }
+
+  Future<List<PerformanceHistory>> fetchPerformanceHistory({
+    required String itemType,
+    required String itemId,
+    String? startDate,
+    String? endDate,
+  }) async {
+    final session = _session;
+    if (session == null) {
+      throw const WealthfolioException('Not signed in.');
+    }
+    final raw = await _api.fetchPerformanceHistory(
+      session,
+      itemType: itemType,
+      itemId: itemId,
+      startDate: startDate,
+      endDate: endDate,
+    );
+    final items = switch (raw['data']) {
+      final List<dynamic> list => list,
+      _ => raw['history'] is List ? raw['history'] as List<dynamic> : const <dynamic>[],
+    };
+    return items.map(PerformanceHistory.fromJson).toList(growable: false);
+  }
+
+  Future<PerformanceMetrics> fetchPerformanceSummary({
+    required String itemType,
+    required String itemId,
+  }) async {
+    final session = _session;
+    if (session == null) {
+      throw const WealthfolioException('Not signed in.');
+    }
+    final raw = await _api.fetchPerformanceSummary(
+      session,
+      itemType: itemType,
+      itemId: itemId,
+    );
+    return PerformanceMetrics.fromJson(raw);
   }
 
   // --- Allocations ----------------------------------------------------------
