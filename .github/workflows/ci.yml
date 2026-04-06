@@ -1,5 +1,9 @@
 name: Wealthfolio Flutter CI/CD
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main, develop]
@@ -233,10 +237,9 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_PASSWORD" ]; then
-            echo "ERROR: One or more keystore secrets are not set."
+            echo "ERROR: Keystore secrets not configured."
             echo "Go to GitHub → Settings → Secrets and variables → Actions → New repository secret"
-            echo "Required secrets: KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_PASSWORD"
-            echo "Run 'devenv shell -- bash scripts/generate_keystore.sh' to generate them."
+            echo "Required: KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_PASSWORD"
             exit 1
           fi
           printf '%s' "$KEYSTORE_BASE64" | python3 -c "
@@ -348,13 +351,17 @@ open('${{ github.workspace }}/upload-keystore.p12','wb').write(base64.b64decode(
           path: build/web
 
       - name: Setup Pages
+        continue-on-error: true
+        id: setup_pages
         uses: actions/configure-pages@v4
 
       - name: Upload to GitHub Pages
+        if: steps.setup_pages.outcome == 'success'
         uses: actions/upload-pages-artifact@v3
         with:
           path: build/web
 
       - name: Deploy to GitHub Pages
+        if: steps.setup_pages.outcome == 'success'
         id: deployment
         uses: actions/deploy-pages@v4
