@@ -21,7 +21,9 @@ String formatPercent(double value, {int decimals = 2}) {
 }
 
 String formatNumber(double value, {int decimals = 2}) {
-  return NumberFormat('#,##0.${'0' * decimals}').format(value);
+  final pattern =
+      decimals == 0 ? '#,##0' : '#,##0.${'0' * decimals}';
+  return NumberFormat(pattern).format(value);
 }
 
 String _currencySymbol(String currency) {
