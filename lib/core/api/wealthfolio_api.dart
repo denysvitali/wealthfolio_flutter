@@ -269,7 +269,7 @@ class NetworkWealthfolioApi implements WealthfolioApi {
       final response = await dio.get<dynamic>(
         '/accounts',
         queryParameters: includeArchived
-            ? const <String, dynamic>{'include_archived': true}
+            ? const <String, dynamic>{'includeArchived': true}
             : null,
       );
       _throwIfRequestFailed(response);

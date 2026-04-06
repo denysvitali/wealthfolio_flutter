@@ -99,9 +99,9 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
         'description': _descriptionController.text.trim().isEmpty
             ? null
             : _descriptionController.text.trim(),
-        'target_amount': double.tryParse(_targetAmountController.text.trim()) ??
+        'targetAmount': double.tryParse(_targetAmountController.text.trim()) ??
             0,
-        'is_achieved': _isAchieved,
+        'isAchieved': _isAchieved,
       };
 
       if (_isEditing) {

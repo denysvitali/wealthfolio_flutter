@@ -21,8 +21,8 @@ class Goal {
       id: parseString(map['id']),
       title: parseString(map['title']),
       description: map['description'] as String?,
-      targetAmount: parseDouble(map['target_amount']),
-      isAchieved: parseBool(map['is_achieved']),
+      targetAmount: parseDouble(map['targetAmount']),
+      isAchieved: parseBool(map['isAchieved']),
     );
   }
 }

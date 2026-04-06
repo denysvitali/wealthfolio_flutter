@@ -8,8 +8,8 @@ void main() {
         'id': 'goal-1',
         'title': 'Retirement Fund',
         'description': 'Save for retirement by 2045',
-        'target_amount': 1000000.0,
-        'is_achieved': false,
+        'targetAmount': 1000000.0,
+        'isAchieved': false,
       };
 
       final goal = Goal.fromJson(json);
@@ -24,8 +24,8 @@ void main() {
       final goal = Goal.fromJson(<String, dynamic>{
         'id': 'g-2',
         'title': 'Emergency Fund',
-        'target_amount': 10000.0,
-        'is_achieved': true,
+        'targetAmount': 10000.0,
+        'isAchieved': true,
       });
 
       expect(goal.description, null);

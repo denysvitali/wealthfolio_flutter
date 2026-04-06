@@ -7,20 +7,20 @@ void main() {
       final json = <String, dynamic>{
         'id': 'acc-1',
         'name': 'My Brokerage',
-        'account_type': 'BROKERAGE',
+        'accountType': 'BROKERAGE',
         'group': 'Taxable',
         'currency': 'USD',
-        'is_default': true,
-        'is_active': true,
-        'is_archived': false,
-        'tracking_mode': 'Transactions',
-        'created_at': '2024-01-01T00:00:00Z',
-        'updated_at': '2024-06-01T00:00:00Z',
-        'platform_id': 'plat-1',
-        'account_number': '123456789',
+        'isDefault': true,
+        'isActive': true,
+        'isArchived': false,
+        'trackingMode': 'Transactions',
+        'createdAt': '2024-01-01T00:00:00Z',
+        'updatedAt': '2024-06-01T00:00:00Z',
+        'platformId': 'plat-1',
+        'accountNumber': '123456789',
         'meta': null,
         'provider': 'Fidelity',
-        'provider_account_id': 'fid-99',
+        'providerAccountId': 'fid-99',
       };
 
       final account = Account.fromJson(json);
@@ -47,10 +47,10 @@ void main() {
       final json = <String, dynamic>{
         'id': 'acc-2',
         'name': 'Savings',
-        'account_type': 'SAVINGS',
+        'accountType': 'SAVINGS',
         'currency': 'EUR',
-        'created_at': '',
-        'updated_at': '',
+        'createdAt': '',
+        'updatedAt': '',
       };
 
       final account = Account.fromJson(json);
