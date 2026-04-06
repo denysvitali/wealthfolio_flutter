@@ -244,9 +244,9 @@ jobs:
           fi
           python3 -c "
 import base64, sys
-data = sys.stdin.read()
-open('${{ github.workspace }}/upload-keystore.p12','wb').write(base64.b64decode(data, ignore=True))
-" <<< "$KEYSTORE_BASE64"
+data = sys.argv[1]
+open(sys.argv[2],'wb').write(base64.b64decode(data, ignore=True))
+" "$KEYSTORE_BASE64" "${{ github.workspace }}/upload-keystore.p12"
           cat > android/key.properties <<EOF
           storePassword=$KEYSTORE_PASSWORD
           keyPassword=$KEY_PASSWORD
