@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:wealthfolio_flutter/core/models/account.dart';
+import 'package:wealthfolio_flutter/core/models/activity.dart';
 import 'package:wealthfolio_flutter/core/models/holding.dart';
 import 'package:wealthfolio_flutter/core/models/session.dart';
 import 'package:wealthfolio_flutter/core/models/settings.dart';
@@ -222,6 +223,55 @@ class AppController extends ChangeNotifier {
     } else {
       await _fetchHoldings(session);
     }
+  }
+
+  // --- Activities -----------------------------------------------------------
+
+  Future<ActivitySearchResponse> searchActivities({
+    int page = 1,
+    int pageSize = 50,
+    String? accountId,
+    String? activityType,
+    String? assetKeyword,
+    String? sort,
+  }) async {
+    final session = _session;
+    if (session == null) {
+      throw const WealthfolioException('Not signed in.');
+    }
+    return _api.searchActivities(
+      session,
+      page: page,
+      pageSize: pageSize,
+      accountId: accountId,
+      activityType: activityType,
+      assetKeyword: assetKeyword,
+      sort: sort,
+    );
+  }
+
+  Future<Activity> createActivity(Map<String, dynamic> data) async {
+    final session = _session;
+    if (session == null) {
+      throw const WealthfolioException('Not signed in.');
+    }
+    return _api.createActivity(session, data);
+  }
+
+  Future<Activity> updateActivity(Map<String, dynamic> data) async {
+    final session = _session;
+    if (session == null) {
+      throw const WealthfolioException('Not signed in.');
+    }
+    return _api.updateActivity(session, data);
+  }
+
+  Future<void> deleteActivity(String id) async {
+    final session = _session;
+    if (session == null) {
+      throw const WealthfolioException('Not signed in.');
+    }
+    await _api.deleteActivity(session, id);
   }
 
   // --- Settings -------------------------------------------------------------
