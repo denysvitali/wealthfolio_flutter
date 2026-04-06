@@ -1,0 +1,349 @@
+name: Wealthfolio Flutter CI/CD
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [main, develop]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type to produce'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+          - debug
+          - release
+          - both
+
+env:
+  JAVA_VERSION: '21'
+  DART_VM_OPTIONS: '--max-gen-heap-size=4096'
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  analyze:
+    name: Analyze Code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v30
+
+      - name: Install devenv
+        run: nix profile install nixpkgs#devenv
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml', '**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - name: Get dependencies
+        run: devenv shell -- flutter pub get
+
+      - name: Analyze code
+        run: devenv shell -- flutter analyze --no-fatal-infos --no-fatal-warnings
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v30
+
+      - name: Install devenv
+        run: nix profile install nixpkgs#devenv
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml', '**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - name: Get dependencies
+        run: devenv shell -- flutter pub get
+
+      - name: Run non-golden tests
+        run: devenv shell -- flutter test --exclude-tags=golden
+
+      - name: Run golden tests
+        run: devenv shell -- flutter test --tags=golden
+
+      - name: Upload golden failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-failures
+          path: |
+            **/failures/*.png
+            **/test/goldens/**/*.png
+          if-no-files-found: ignore
+          retention-days: 14
+
+  build-debug:
+    name: Build Debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: |
+      (github.event_name != 'workflow_dispatch' &&
+       !startsWith(github.ref, 'refs/tags/v') &&
+       github.ref != 'refs/heads/main') ||
+      github.event.inputs.build_type == 'debug' ||
+      github.event.inputs.build_type == 'both'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Determine build metadata
+        id: build_meta
+        run: |
+          BUILD_NUMBER=$(( ${{ github.run_number }} * 100 + ${{ github.run_attempt }} ))
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf /opt/microsoft/powershell
+          sudo rm -rf /usr/local/share/chromedriver-linux64
+          sudo rm -rf /usr/local/share/edge_driver
+          sudo rm -rf /usr/local/share/gecko_driver
+          sudo rm -rf /usr/share/swift
+          df -h
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v30
+
+      - name: Install devenv
+        run: nix profile install nixpkgs#devenv
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml', '**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Get dependencies
+        run: devenv shell -- flutter pub get
+
+      - name: Build Debug APK
+        run: |
+          devenv shell -- flutter build apk --debug --no-pub \
+            --target-platform android-arm64 \
+            --build-number ${{ steps.build_meta.outputs.BUILD_NUMBER }}
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: wealthfolio-flutter-debug-b${{ steps.build_meta.outputs.BUILD_NUMBER }}
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 14
+
+  build-release:
+    name: Build Release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'both')) ||
+      startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Determine build metadata
+        id: build_meta
+        run: |
+          BUILD_NUMBER=$(( ${{ github.run_number }} * 100 + ${{ github.run_attempt }} ))
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf /opt/microsoft/powershell
+          sudo rm -rf /usr/local/share/chromedriver-linux64
+          sudo rm -rf /usr/local/share/edge_driver
+          sudo rm -rf /usr/local/share/gecko_driver
+          sudo rm -rf /usr/share/swift
+          df -h
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v30
+
+      - name: Install devenv
+        run: nix profile install nixpkgs#devenv
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml', '**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Get dependencies
+        run: devenv shell -- flutter pub get
+
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "${{ github.workspace }}/upload-keystore.p12"
+          cat > android/key.properties <<EOF
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=upload
+          storeFile=${{ github.workspace }}/upload-keystore.p12
+          EOF
+          sed -i 's/^[[:space:]]*//' android/key.properties
+
+      - name: Build Release APK
+        run: |
+          SENTRY_RELEASE="wealthfolio_flutter@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }}"
+          devenv shell -- flutter build apk --release --no-pub \
+            --target-platform android-arm64 \
+            --build-number ${{ steps.build_meta.outputs.BUILD_NUMBER }} \
+            --dart-define=SENTRY_RELEASE=$SENTRY_RELEASE \
+            --split-debug-info=build/debug-info \
+            --obfuscate
+
+      - name: Upload Sentry debug symbols
+        if: env.SENTRY_AUTH_TOKEN != ''
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_RELEASE: wealthfolio_flutter@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }}
+          SENTRY_DIST: ${{ steps.build_meta.outputs.BUILD_NUMBER }}
+        run: devenv shell -- flutter pub run sentry_dart_plugin
+
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: wealthfolio-flutter-release-b${{ steps.build_meta.outputs.BUILD_NUMBER }}
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14
+
+      - name: Determine release version
+        id: release_version
+        run: |
+          SEMVER=$(grep '^version:' pubspec.yaml | sed 's/version: *//' | cut -d'+' -f1 | tr -d ' ')
+          RELEASE_TAG="v${SEMVER}-${{ steps.build_meta.outputs.BUILD_NUMBER }}"
+          echo "SEMVER=$SEMVER" >> $GITHUB_OUTPUT
+          echo "RELEASE_TAG=$RELEASE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_version.outputs.RELEASE_TAG }}
+          name: Wealthfolio Flutter v${{ steps.release_version.outputs.SEMVER }}-${{ steps.build_meta.outputs.BUILD_NUMBER }}
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+          files: build/app/outputs/flutter-apk/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-web:
+    name: Build Web
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v30
+
+      - name: Install devenv
+        run: nix profile install nixpkgs#devenv
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml', '**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - name: Get dependencies
+        run: devenv shell -- flutter pub get
+
+      - name: Build Web
+        run: devenv shell -- flutter build web --release --base-href '/'
+
+      - name: Upload Web Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: build/web
+          retention-days: 1
+
+  deploy-web:
+    name: Deploy to GitHub Pages
+    needs: build-web
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Download Web Build
+        uses: actions/download-artifact@v4
+        with:
+          name: web-build
+          path: build/web
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload to GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
