@@ -97,24 +97,55 @@ class AppController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Validate the restored session and load initial data.
+      // Validate the restored session.
       await _api.getAuthStatus(storedSession);
-      await Future.wait<void>(<Future<void>>[
-        _fetchAccounts(storedSession),
-        _fetchHoldings(storedSession),
-        _loadBaseCurrency(storedSession),
-      ]);
-    } on Exception {
-      _stage = AppStage.unauthenticated;
-      _session = null;
-      _accounts = const <Account>[];
-      _holdings = const <Holding>[];
-      _loadingAccounts = false;
-      _loadingHoldings = false;
-      await _storage.clearSession();
-      _errorMessage = 'Saved session expired. Sign in again.';
-      notifyListeners();
+    } on WealthfolioException catch (e) {
+      if (_isAuthError(e)) {
+        _clearSession();
+        return;
+      }
     }
+
+    // Load accounts first — holdings require accountId.
+    try {
+      await _fetchAccounts(storedSession);
+    } on WealthfolioException catch (e) {
+      if (_isAuthError(e)) {
+        _clearSession();
+        return;
+      }
+      _loadingHoldings = false;
+      notifyListeners();
+      return;
+    }
+
+    // Fetch holdings per-account and base currency in parallel.
+    await Future.wait<void>(<Future<void>>[
+      _fetchHoldingsForAccounts(storedSession, _accounts),
+      _loadBaseCurrency(storedSession),
+    ]);
+  }
+
+  /// Returns true if the exception is an authentication/authorization failure
+  /// that warrants clearing the stored session.
+  bool _isAuthError(WealthfolioException e) {
+    final msg = e.message.toLowerCase();
+    return msg.contains('unauthorized') ||
+        msg.contains('401') ||
+        msg.contains('forbidden') ||
+        msg.contains('authentication');
+  }
+
+  void _clearSession() {
+    _stage = AppStage.unauthenticated;
+    _session = null;
+    _accounts = const <Account>[];
+    _holdings = const <Holding>[];
+    _loadingAccounts = false;
+    _loadingHoldings = false;
+    _errorMessage = 'Saved session expired. Sign in again.';
+    _storage.clearSession();
+    notifyListeners();
   }
 
   // --- Auth -----------------------------------------------------------------
@@ -152,9 +183,10 @@ class AppController extends ChangeNotifier {
       _stage = AppStage.authenticated;
       await _storage.saveSession(nextSession);
 
+      // Fetch accounts first — holdings require accountId.
+      await _fetchAccounts(nextSession);
       await Future.wait<void>(<Future<void>>[
-        _fetchAccounts(nextSession),
-        _fetchHoldings(nextSession),
+        _fetchHoldingsForAccounts(nextSession, _accounts),
         _loadBaseCurrency(nextSession),
       ]);
     });
@@ -241,9 +273,9 @@ class AppController extends ChangeNotifier {
     }
 
     if (showSpinner) {
-      await _runBusyAction(() => _fetchHoldings(session));
+      await _runBusyAction(() => _fetchHoldingsForAccounts(session, _accounts));
     } else {
-      await _fetchHoldings(session);
+      await _fetchHoldingsForAccounts(session, _accounts);
     }
   }
 
@@ -479,12 +511,25 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  Future<void> _fetchHoldings(AppSession session) async {
+  Future<void> _fetchHoldingsForAccounts(
+    AppSession session,
+    List<Account> accounts,
+  ) async {
     _loadingHoldings = true;
     notifyListeners();
 
     try {
-      _holdings = await _api.fetchHoldings(session);
+      final allHoldings = <Holding>[];
+      await Future.wait<void>(
+        accounts.map((account) async {
+          final holdings = await _api.fetchHoldings(
+            session,
+            accountId: account.id,
+          );
+          allHoldings.addAll(holdings);
+        }),
+      );
+      _holdings = allHoldings;
       _lastRefreshedAt = DateTime.now();
       _errorMessage = null;
     } on WealthfolioException catch (error) {

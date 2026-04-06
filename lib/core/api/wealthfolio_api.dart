@@ -41,7 +41,7 @@ abstract class WealthfolioApi {
   Future<void> deleteAccount(AppSession session, String id);
 
   // Holdings
-  Future<List<Holding>> fetchHoldings(AppSession session, {String? accountId});
+  Future<List<Holding>> fetchHoldings(AppSession session, {required String accountId});
   Future<Holding?> fetchHolding(
     AppSession session, {
     required String accountId,
@@ -343,15 +343,13 @@ class NetworkWealthfolioApi implements WealthfolioApi {
   @override
   Future<List<Holding>> fetchHoldings(
     AppSession session, {
-    String? accountId,
+    required String accountId,
   }) async {
     final dio = _createDio(session.serverUrl, token: session.token);
     try {
       final response = await dio.get<dynamic>(
         '/holdings',
-        queryParameters: accountId != null
-            ? <String, dynamic>{'account_id': accountId}
-            : null,
+        queryParameters: <String, dynamic>{'accountId': accountId},
       );
       _throwIfRequestFailed(response);
       return parseList(
@@ -375,8 +373,8 @@ class NetworkWealthfolioApi implements WealthfolioApi {
       final response = await dio.get<dynamic>(
         '/holdings/item',
         queryParameters: <String, dynamic>{
-          'account_id': accountId,
-          'asset_id': assetId,
+          'accountId': accountId,
+          'assetId': assetId,
         },
       );
       if ((response.statusCode ?? 500) == 404) {
@@ -400,7 +398,7 @@ class NetworkWealthfolioApi implements WealthfolioApi {
     try {
       final response = await dio.get<dynamic>(
         '/holdings/by-asset',
-        queryParameters: <String, dynamic>{'asset_id': assetId},
+        queryParameters: <String, dynamic>{'assetId': assetId},
       );
       _throwIfRequestFailed(response);
       return parseList(
@@ -513,7 +511,7 @@ class NetworkWealthfolioApi implements WealthfolioApi {
     try {
       final response = await dio.post<dynamic>(
         '/performance/accounts/simple',
-        data: <String, dynamic>{'account_ids': accountIds},
+        data: <String, dynamic>{'accountIds': accountIds},
       );
       _throwIfRequestFailed(response);
       return parseList(
@@ -537,10 +535,10 @@ class NetworkWealthfolioApi implements WealthfolioApi {
     final dio = _createDio(session.serverUrl, token: session.token);
     try {
       final body = <String, dynamic>{
-        'item_type': itemType,
-        'item_id': itemId,
-        'start_date': ?startDate,
-        'end_date': ?endDate,
+        'itemType': itemType,
+        'itemId': itemId,
+        'startDate': ?startDate,
+        'endDate': ?endDate,
       };
       final response = await dio.post<dynamic>(
         '/performance/history',
@@ -565,7 +563,7 @@ class NetworkWealthfolioApi implements WealthfolioApi {
     try {
       final response = await dio.post<dynamic>(
         '/performance/summary',
-        data: <String, dynamic>{'item_type': itemType, 'item_id': itemId},
+        data: <String, dynamic>{'itemType': itemType, 'itemId': itemId},
       );
       _throwIfRequestFailed(response);
       return parseMap(response.data);
@@ -611,8 +609,8 @@ class NetworkWealthfolioApi implements WealthfolioApi {
       final response = await dio.get<dynamic>(
         '/net-worth/history',
         queryParameters: <String, dynamic>{
-          'start_date': startDate,
-          'end_date': endDate,
+          'startDate': startDate,
+          'endDate': endDate,
         },
       );
       _throwIfRequestFailed(response);
@@ -843,7 +841,7 @@ class NetworkWealthfolioApi implements WealthfolioApi {
       final response = await dio.get<dynamic>(
         '/income/summary',
         queryParameters: accountId != null
-            ? <String, dynamic>{'account_id': accountId}
+            ? <String, dynamic>{'accountId': accountId}
             : null,
       );
       _throwIfRequestFailed(response);
@@ -923,7 +921,7 @@ class NetworkWealthfolioApi implements WealthfolioApi {
     try {
       final response = await dio.get<dynamic>(
         '/assets/profile',
-        queryParameters: <String, dynamic>{'asset_id': assetId},
+        queryParameters: <String, dynamic>{'assetId': assetId},
       );
       _throwIfRequestFailed(response);
       return Asset.fromJson(response.data);
@@ -948,7 +946,7 @@ class NetworkWealthfolioApi implements WealthfolioApi {
       final response = await dio.get<dynamic>(
         '/allocations',
         queryParameters: accountId != null
-            ? <String, dynamic>{'account_id': accountId}
+            ? <String, dynamic>{'accountId': accountId}
             : null,
       );
       _throwIfRequestFailed(response);
@@ -972,9 +970,9 @@ class NetworkWealthfolioApi implements WealthfolioApi {
       final response = await dio.get<dynamic>(
         '/allocations/holdings',
         queryParameters: <String, dynamic>{
-          'account_id': accountId,
-          'taxonomy_id': taxonomyId,
-          'category_id': categoryId,
+          'accountId': accountId,
+          'taxonomyId': taxonomyId,
+          'categoryId': categoryId,
         },
       );
       _throwIfRequestFailed(response);
