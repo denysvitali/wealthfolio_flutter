@@ -284,7 +284,7 @@ class _AccountFilter extends StatelessWidget {
                 value: null,
                 child: Text('All Accounts'),
               ),
-              for (final account in accounts)
+              for (final Account account in accounts)
                 DropdownMenuItem<String?>(
                   value: account.id,
                   child: Text(account.name),

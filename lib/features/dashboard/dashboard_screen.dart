@@ -3,6 +3,10 @@ import 'package:wealthfolio_flutter/core/models/account.dart';
 import 'package:wealthfolio_flutter/core/models/holding.dart';
 import 'package:wealthfolio_flutter/core/services/app_controller.dart';
 import 'package:wealthfolio_flutter/core/utils/currency_format.dart';
+import 'package:wealthfolio_flutter/features/goals/goals_screen.dart';
+import 'package:wealthfolio_flutter/features/income/income_screen.dart';
+import 'package:wealthfolio_flutter/features/insights/insights_screen.dart';
+import 'package:wealthfolio_flutter/features/net_worth/net_worth_screen.dart';
 import 'package:wealthfolio_flutter/ui/app_colors.dart';
 import 'package:wealthfolio_flutter/ui/design_tokens.dart';
 import 'package:wealthfolio_flutter/ui/shared_widgets.dart';
@@ -158,6 +162,10 @@ class _DashboardContent extends StatelessWidget {
                   )
                 else
                   _TopHoldingsList(holdings: top5, currency: currency),
+                const SizedBox(height: AppSpacing.xxxl),
+                const _SectionHeader(title: 'Explore'),
+                const SizedBox(height: AppSpacing.lg),
+                _QuickLinksGrid(controller: controller),
                 // Bottom safe area padding
                 const SizedBox(height: AppSpacing.huge),
               ]),
@@ -834,4 +842,117 @@ class _PortfolioTotals {
   final double bookValue;
   final double gain;
   final double gainPercent;
+}
+
+// ---------------------------------------------------------------------------
+// Quick Links grid — Phase 4 secondary screens
+// ---------------------------------------------------------------------------
+
+class _QuickLinksGrid extends StatelessWidget {
+  const _QuickLinksGrid({required this.controller});
+  final AppController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final items = <_QuickLinkItem>[
+      _QuickLinkItem(
+        icon: Icons.account_balance_wallet_outlined,
+        label: 'Net Worth',
+        color: AppColors.blue,
+        onTap: () => Navigator.push<void>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => NetWorthScreen(controller: controller),
+          ),
+        ),
+      ),
+      _QuickLinkItem(
+        icon: Icons.savings_outlined,
+        label: 'Goals',
+        color: AppColors.green,
+        onTap: () => Navigator.push<void>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => GoalsScreen(controller: controller),
+          ),
+        ),
+      ),
+      _QuickLinkItem(
+        icon: Icons.payments_outlined,
+        label: 'Income',
+        color: AppColors.purple,
+        onTap: () => Navigator.push<void>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => IncomeScreen(controller: controller),
+          ),
+        ),
+      ),
+      _QuickLinkItem(
+        icon: Icons.insights_outlined,
+        label: 'Insights',
+        color: AppColors.orange,
+        onTap: () => Navigator.push<void>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => InsightsScreen(controller: controller),
+          ),
+        ),
+      ),
+    ];
+
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: AppSpacing.xl,
+      crossAxisSpacing: AppSpacing.xl,
+      childAspectRatio: 2.2,
+      children: items.map((item) {
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: item.onTap,
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.outline(theme)),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(item.icon, size: 24, color: item.color),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    item.label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _QuickLinkItem {
+  const _QuickLinkItem({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
 }

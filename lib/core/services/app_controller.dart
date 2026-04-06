@@ -1,7 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:wealthfolio_flutter/core/models/account.dart';
 import 'package:wealthfolio_flutter/core/models/activity.dart';
+import 'package:wealthfolio_flutter/core/models/goal.dart';
 import 'package:wealthfolio_flutter/core/models/holding.dart';
+import 'package:wealthfolio_flutter/core/models/income_summary.dart';
+import 'package:wealthfolio_flutter/core/models/net_worth.dart';
+import 'package:wealthfolio_flutter/core/models/portfolio_allocation.dart';
 import 'package:wealthfolio_flutter/core/models/session.dart';
 import 'package:wealthfolio_flutter/core/models/settings.dart';
 
@@ -272,6 +276,110 @@ class AppController extends ChangeNotifier {
       throw const WealthfolioException('Not signed in.');
     }
     await _api.deleteActivity(session, id);
+  }
+
+  // --- Goals ----------------------------------------------------------------
+
+  Future<List<Goal>> fetchGoals() async {
+    final session = _session;
+    if (session == null) {
+      throw const WealthfolioException('Not signed in.');
+    }
+    return _api.fetchGoals(session);
+  }
+
+  Future<Goal> createGoal(Map<String, dynamic> data) async {
+    final session = _session;
+    if (session == null) {
+      throw const WealthfolioException('Not signed in.');
+    }
+    return _api.createGoal(session, data);
+  }
+
+  Future<Goal> updateGoal(Map<String, dynamic> data) async {
+    final session = _session;
+    if (session == null) {
+      throw const WealthfolioException('Not signed in.');
+    }
+    return _api.updateGoal(session, data);
+  }
+
+  Future<void> deleteGoal(String id) async {
+    final session = _session;
+    if (session == null) {
+      throw const WealthfolioException('Not signed in.');
+    }
+    await _api.deleteGoal(session, id);
+  }
+
+  // --- Income ---------------------------------------------------------------
+
+  Future<IncomeSummary> fetchIncomeSummary({String? accountId}) async {
+    final session = _session;
+    if (session == null) {
+      throw const WealthfolioException('Not signed in.');
+    }
+    final raw = await _api.fetchIncomeSummary(session, accountId: accountId);
+    return IncomeSummary.fromJson(raw);
+  }
+
+  // --- Net Worth ------------------------------------------------------------
+
+  Future<NetWorthResponse> fetchNetWorth({String? date}) async {
+    final session = _session;
+    if (session == null) {
+      throw const WealthfolioException('Not signed in.');
+    }
+    final raw = await _api.fetchNetWorth(session, date: date);
+    return NetWorthResponse.fromJson(raw);
+  }
+
+  Future<List<NetWorthHistoryPoint>> fetchNetWorthHistory({
+    required String startDate,
+    required String endDate,
+  }) async {
+    final session = _session;
+    if (session == null) {
+      throw const WealthfolioException('Not signed in.');
+    }
+    final rawList = await _api.fetchNetWorthHistory(
+      session,
+      startDate: startDate,
+      endDate: endDate,
+    );
+    return rawList
+        .map(NetWorthHistoryPoint.fromJson)
+        .toList(growable: false);
+  }
+
+  // --- Allocations ----------------------------------------------------------
+
+  Future<List<PortfolioAllocation>> fetchAllocations({String? accountId}) async {
+    final session = _session;
+    if (session == null) {
+      throw const WealthfolioException('Not signed in.');
+    }
+    final raw = await _api.fetchAllocations(session, accountId: accountId);
+    // The API returns a map with allocation arrays per category type.
+    // Flatten all allocation entries across taxonomy groups.
+    final allocations = <PortfolioAllocation>[];
+    for (final entry in raw.entries) {
+      final value = entry.value;
+      if (value is List) {
+        for (final item in value) {
+          allocations.add(PortfolioAllocation.fromJson(item));
+        }
+      } else if (value is Map) {
+        // Some APIs nest under a key like 'allocations' or 'categories'.
+        final nested = value['allocations'] ?? value['categories'];
+        if (nested is List) {
+          for (final item in nested) {
+            allocations.add(PortfolioAllocation.fromJson(item));
+          }
+        }
+      }
+    }
+    return allocations;
   }
 
   // --- Settings -------------------------------------------------------------
