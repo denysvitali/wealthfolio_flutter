@@ -120,20 +120,20 @@ Matching the Wealthfolio React frontend:
 
 ---
 
-## Phase 4: Secondary Features
+## Phase 4: Secondary Features [COMPLETE]
 
 ### Step 4.1: Income
-- [ ] `lib/features/income/income_screen.dart` — Income summary + charts
+- [x] `lib/features/income/income_screen.dart` — Income summary + charts
 
 ### Step 4.2: Goals
-- [ ] `lib/features/goals/goals_screen.dart` — Goal tracking cards
-- [ ] `lib/features/goals/goal_form_screen.dart` — Create/edit goal
+- [x] `lib/features/goals/goals_screen.dart` — Goal tracking cards
+- [x] `lib/features/goals/goal_form_screen.dart` — Create/edit goal
 
 ### Step 4.3: Net Worth
-- [ ] `lib/features/net_worth/net_worth_screen.dart` — Net worth history chart
+- [x] `lib/features/net_worth/net_worth_screen.dart` — Net worth history chart
 
 ### Step 4.4: Allocations / Insights
-- [ ] `lib/features/insights/insights_screen.dart` — Portfolio allocation breakdown
+- [x] `lib/features/insights/insights_screen.dart` — Portfolio allocation breakdown
 
 ---
 
