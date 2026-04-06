@@ -242,14 +242,7 @@ jobs:
             echo "Required: KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_PASSWORD"
             exit 1
           fi
-          cat > /tmp/decode_keystore.py <<'PYEOF'
-import base64, sys
-data = sys.argv[1]
-with open(sys.argv[2], 'wb') as f:
-    f.write(base64.b64decode(data, ignore=True))
-PYEOF
-          python3 /tmp/decode_keystore.py "$KEYSTORE_BASE64" "${{ github.workspace }}/upload-keystore.p12"
-          rm /tmp/decode_keystore.py
+          echo "$KEYSTORE_BASE64" | base64 -d > "${{ github.workspace }}/upload-keystore.p12"
           cat > android/key.properties <<EOF
           storePassword=$KEYSTORE_PASSWORD
           keyPassword=$KEY_PASSWORD
