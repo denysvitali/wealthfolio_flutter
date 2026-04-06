@@ -243,8 +243,8 @@ jobs:
             echo "Run 'devenv shell -- bash scripts/generate_keystore.sh' to generate them."
             exit 1
           fi
-          echo "$KEYSTORE_BASE64" | tr -cd 'A-Za-z0-9+/=' > /tmp/keystore.b64
-          base64 -d /tmp/keystore.b64 > "${{ github.workspace }}/upload-keystore.p12"
+          echo "$KEYSTORE_BASE64" | tr -d '\r\n' | tr -cd 'A-Za-z0-9+/=' > /tmp/keystore.b64
+          openssl base64 -d -A -in /tmp/keystore.b64 -out "${{ github.workspace }}/upload-keystore.p12"
           rm /tmp/keystore.b64
           cat > android/key.properties <<EOF
           storePassword=$KEYSTORE_PASSWORD
