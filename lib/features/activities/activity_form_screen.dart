@@ -258,15 +258,15 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
     try {
       final data = <String, dynamic>{
         if (_isEditing) 'id': widget.activity!.id,
-        'account_id': _selectedAccountId,
-        'asset_id': _assetIdController.text.trim().toUpperCase(),
-        'activity_type': _activityType,
-        'activity_date': _dateToApiStr(_activityDate),
+        'accountId': _selectedAccountId,
+        'assetId': _assetIdController.text.trim().toUpperCase(),
+        'activityType': _activityType,
+        'activityDate': _dateToApiStr(_activityDate),
         'quantity': _parseField(_quantityController.text),
-        'unit_price': _parseField(_unitPriceController.text),
+        'unitPrice': _parseField(_unitPriceController.text),
         'currency': _currencyController.text.trim().toUpperCase(),
         'fee': _parseField(_feeController.text),
-        'is_draft': _isDraft,
+        'isDraft': _isDraft,
         'comment': _commentController.text.trim().isEmpty
             ? null
             : _commentController.text.trim(),
