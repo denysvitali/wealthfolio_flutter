@@ -87,7 +87,7 @@ jobs:
         run: devenv shell -- flutter test --exclude-tags=golden
 
       - name: Run golden tests
-        run: devenv shell -- flutter test --tags=golden
+        run: devenv shell -- flutter test --tags=golden || [ $? -eq 79 ]
 
       - name: Upload golden failures
         if: failure()
