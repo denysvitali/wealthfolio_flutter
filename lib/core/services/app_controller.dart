@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:wealthfolio_flutter/core/models/account.dart';
 import 'package:wealthfolio_flutter/core/models/activity.dart';
 import 'package:wealthfolio_flutter/core/models/goal.dart';
@@ -23,11 +24,9 @@ enum AppStage { booting, unauthenticated, authenticated }
 // ---------------------------------------------------------------------------
 
 class AppController extends ChangeNotifier {
-  AppController({
-    required SessionStorage storage,
-    required WealthfolioApi api,
-  }) : _storage = storage,
-       _api = api;
+  AppController({required SessionStorage storage, required WealthfolioApi api})
+    : _storage = storage,
+      _api = api;
 
   final SessionStorage _storage;
   final WealthfolioApi _api;
@@ -84,6 +83,14 @@ class AppController extends ChangeNotifier {
     }
 
     _session = storedSession;
+    Sentry.configureScope((scope) {
+      scope.setUser(
+        SentryUser(
+          username: storedSession.username,
+          data: <String, dynamic>{'server_url': storedSession.serverUrl},
+        ),
+      );
+    });
     _stage = AppStage.authenticated;
     _loadingAccounts = true;
     _loadingHoldings = true;
@@ -134,6 +141,14 @@ class AppController extends ChangeNotifier {
       );
 
       _session = nextSession;
+      Sentry.configureScope((scope) {
+        scope.setUser(
+          SentryUser(
+            username: nextSession.username,
+            data: <String, dynamic>{'server_url': nextSession.serverUrl},
+          ),
+        );
+      });
       _stage = AppStage.authenticated;
       await _storage.saveSession(nextSession);
 
@@ -146,6 +161,9 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    Sentry.configureScope((scope) {
+      scope.setUser(null);
+    });
     _session = null;
     _accounts = const <Account>[];
     _holdings = const <Holding>[];
@@ -347,14 +365,14 @@ class AppController extends ChangeNotifier {
       startDate: startDate,
       endDate: endDate,
     );
-    return rawList
-        .map(NetWorthHistoryPoint.fromJson)
-        .toList(growable: false);
+    return rawList.map(NetWorthHistoryPoint.fromJson).toList(growable: false);
   }
 
   // --- Allocations ----------------------------------------------------------
 
-  Future<List<PortfolioAllocation>> fetchAllocations({String? accountId}) async {
+  Future<List<PortfolioAllocation>> fetchAllocations({
+    String? accountId,
+  }) async {
     final session = _session;
     if (session == null) {
       throw const WealthfolioException('Not signed in.');

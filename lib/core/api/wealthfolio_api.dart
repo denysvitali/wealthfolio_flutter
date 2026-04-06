@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:wealthfolio_flutter/core/models/account.dart';
 import 'package:wealthfolio_flutter/core/models/activity.dart';
 import 'package:wealthfolio_flutter/core/models/asset.dart';
@@ -31,10 +32,7 @@ abstract class WealthfolioApi {
     AppSession session, {
     bool includeArchived = false,
   });
-  Future<Account> createAccount(
-    AppSession session,
-    Map<String, dynamic> data,
-  );
+  Future<Account> createAccount(AppSession session, Map<String, dynamic> data);
   Future<Account> updateAccount(
     AppSession session,
     String id,
@@ -49,7 +47,10 @@ abstract class WealthfolioApi {
     required String accountId,
     required String assetId,
   });
-  Future<List<Holding>> fetchHoldingsByAsset(AppSession session, String assetId);
+  Future<List<Holding>> fetchHoldingsByAsset(
+    AppSession session,
+    String assetId,
+  );
 
   // Activities
   Future<ActivitySearchResponse> searchActivities(
@@ -61,8 +62,14 @@ abstract class WealthfolioApi {
     String? assetKeyword,
     String? sort,
   });
-  Future<Activity> createActivity(AppSession session, Map<String, dynamic> data);
-  Future<Activity> updateActivity(AppSession session, Map<String, dynamic> data);
+  Future<Activity> createActivity(
+    AppSession session,
+    Map<String, dynamic> data,
+  );
+  Future<Activity> updateActivity(
+    AppSession session,
+    Map<String, dynamic> data,
+  );
   Future<void> deleteActivity(AppSession session, String id);
 
   // Performance
@@ -96,7 +103,10 @@ abstract class WealthfolioApi {
 
   // Settings
   Future<Settings> fetchSettings(AppSession session);
-  Future<Settings> updateSettings(AppSession session, Map<String, dynamic> data);
+  Future<Settings> updateSettings(
+    AppSession session,
+    Map<String, dynamic> data,
+  );
 
   // Portfolio
   Future<void> updatePortfolio(AppSession session);
@@ -238,9 +248,9 @@ class NetworkWealthfolioApi implements WealthfolioApi {
             : null,
       );
       _throwIfRequestFailed(response);
-      return parseList(response.data)
-          .map((dynamic item) => Account.fromJson(item))
-          .toList(growable: false);
+      return parseList(
+        response.data,
+      ).map((dynamic item) => Account.fromJson(item)).toList(growable: false);
     } on DioException catch (error) {
       throw WealthfolioException(_formatDioError(error));
     } finally {
@@ -319,9 +329,9 @@ class NetworkWealthfolioApi implements WealthfolioApi {
             : null,
       );
       _throwIfRequestFailed(response);
-      return parseList(response.data)
-          .map((dynamic item) => Holding.fromJson(item))
-          .toList(growable: false);
+      return parseList(
+        response.data,
+      ).map((dynamic item) => Holding.fromJson(item)).toList(growable: false);
     } on DioException catch (error) {
       throw WealthfolioException(_formatDioError(error));
     } finally {
@@ -368,9 +378,9 @@ class NetworkWealthfolioApi implements WealthfolioApi {
         queryParameters: <String, dynamic>{'asset_id': assetId},
       );
       _throwIfRequestFailed(response);
-      return parseList(response.data)
-          .map((dynamic item) => Holding.fromJson(item))
-          .toList(growable: false);
+      return parseList(
+        response.data,
+      ).map((dynamic item) => Holding.fromJson(item)).toList(growable: false);
     } on DioException catch (error) {
       throw WealthfolioException(_formatDioError(error));
     } finally {
@@ -402,7 +412,10 @@ class NetworkWealthfolioApi implements WealthfolioApi {
         'asset_keyword': ?assetKeyword,
         'sort': ?sort,
       };
-      final response = await dio.post<dynamic>('/activities/search', data: body);
+      final response = await dio.post<dynamic>(
+        '/activities/search',
+        data: body,
+      );
       _throwIfRequestFailed(response);
       return ActivitySearchResponse.fromJson(response.data);
     } on DioException catch (error) {
@@ -478,9 +491,9 @@ class NetworkWealthfolioApi implements WealthfolioApi {
         data: <String, dynamic>{'account_ids': accountIds},
       );
       _throwIfRequestFailed(response);
-      return parseList(response.data)
-          .map((dynamic item) => parseMap(item))
-          .toList(growable: false);
+      return parseList(
+        response.data,
+      ).map((dynamic item) => parseMap(item)).toList(growable: false);
     } on DioException catch (error) {
       throw WealthfolioException(_formatDioError(error));
     } finally {
@@ -551,9 +564,7 @@ class NetworkWealthfolioApi implements WealthfolioApi {
     try {
       final response = await dio.get<dynamic>(
         '/net-worth',
-        queryParameters: date != null
-            ? <String, dynamic>{'date': date}
-            : null,
+        queryParameters: date != null ? <String, dynamic>{'date': date} : null,
       );
       _throwIfRequestFailed(response);
       return parseMap(response.data);
@@ -580,9 +591,9 @@ class NetworkWealthfolioApi implements WealthfolioApi {
         },
       );
       _throwIfRequestFailed(response);
-      return parseList(response.data)
-          .map((dynamic item) => parseMap(item))
-          .toList(growable: false);
+      return parseList(
+        response.data,
+      ).map((dynamic item) => parseMap(item)).toList(growable: false);
     } on DioException catch (error) {
       throw WealthfolioException(_formatDioError(error));
     } finally {
@@ -671,9 +682,9 @@ class NetworkWealthfolioApi implements WealthfolioApi {
     try {
       final response = await dio.get<dynamic>('/goals');
       _throwIfRequestFailed(response);
-      return parseList(response.data)
-          .map((dynamic item) => Goal.fromJson(item))
-          .toList(growable: false);
+      return parseList(
+        response.data,
+      ).map((dynamic item) => Goal.fromJson(item)).toList(growable: false);
     } on DioException catch (error) {
       throw WealthfolioException(_formatDioError(error));
     } finally {
@@ -682,10 +693,7 @@ class NetworkWealthfolioApi implements WealthfolioApi {
   }
 
   @override
-  Future<Goal> createGoal(
-    AppSession session,
-    Map<String, dynamic> data,
-  ) async {
+  Future<Goal> createGoal(AppSession session, Map<String, dynamic> data) async {
     final dio = _createDio(session.serverUrl, token: session.token);
     try {
       final response = await dio.post<dynamic>('/goals', data: data);
@@ -699,10 +707,7 @@ class NetworkWealthfolioApi implements WealthfolioApi {
   }
 
   @override
-  Future<Goal> updateGoal(
-    AppSession session,
-    Map<String, dynamic> data,
-  ) async {
+  Future<Goal> updateGoal(AppSession session, Map<String, dynamic> data) async {
     final dio = _createDio(session.serverUrl, token: session.token);
     try {
       final response = await dio.put<dynamic>('/goals', data: data);
@@ -841,9 +846,9 @@ class NetworkWealthfolioApi implements WealthfolioApi {
         queryParameters: <String, dynamic>{'query': query},
       );
       _throwIfRequestFailed(response);
-      return parseList(response.data)
-          .map((dynamic item) => parseMap(item))
-          .toList(growable: false);
+      return parseList(
+        response.data,
+      ).map((dynamic item) => parseMap(item)).toList(growable: false);
     } on DioException catch (error) {
       throw WealthfolioException(_formatDioError(error));
     } finally {
@@ -877,9 +882,9 @@ class NetworkWealthfolioApi implements WealthfolioApi {
     try {
       final response = await dio.get<dynamic>('/assets');
       _throwIfRequestFailed(response);
-      return parseList(response.data)
-          .map((dynamic item) => Asset.fromJson(item))
-          .toList(growable: false);
+      return parseList(
+        response.data,
+      ).map((dynamic item) => Asset.fromJson(item)).toList(growable: false);
     } on DioException catch (error) {
       throw WealthfolioException(_formatDioError(error));
     } finally {
@@ -993,9 +998,15 @@ class NetworkWealthfolioApi implements WealthfolioApi {
     final status = response.statusCode ?? 500;
     if (status >= 400) {
       final body = parseMap(response.data);
-      throw WealthfolioException(
-        _extractErrorMessage(body) ?? 'Request failed with HTTP $status.',
+      final message =
+          _extractErrorMessage(body) ?? 'Request failed with HTTP $status.';
+      _captureHttpFailure(
+        response.requestOptions,
+        statusCode: status,
+        message: message,
+        responseBody: body.isEmpty ? response.data : body,
       );
+      throw WealthfolioException(message);
     }
   }
 }
@@ -1023,6 +1034,13 @@ String _normalizeUrl(String serverUrl) {
 
 String _formatDioError(DioException error) {
   final responseBody = parseMap(error.response?.data);
+  _captureHttpFailure(
+    error.requestOptions,
+    statusCode: error.response?.statusCode,
+    message: error.message?.trim() ?? 'Network request failed.',
+    responseBody: responseBody.isEmpty ? error.response?.data : responseBody,
+    exception: error,
+  );
   final apiMessage = _extractErrorMessage(responseBody);
   if (apiMessage != null) {
     return apiMessage;
@@ -1034,6 +1052,92 @@ String _formatDioError(DioException error) {
   }
 
   return 'Network request failed.';
+}
+
+void _captureHttpFailure(
+  RequestOptions requestOptions, {
+  required String message,
+  int? statusCode,
+  dynamic responseBody,
+  Object? exception,
+}) {
+  final sanitizedHeaders = _sanitizeValue(requestOptions.headers);
+  final sanitizedRequestData = _sanitizeValue(requestOptions.data);
+  final sanitizedResponseBody = _sanitizeValue(responseBody);
+  final apiContext = <String, dynamic>{
+    'base_url': requestOptions.baseUrl,
+    'method': requestOptions.method,
+    'path': requestOptions.path,
+    'uri': requestOptions.uri.toString(),
+    'query_parameters': requestOptions.queryParameters,
+    'request_headers': sanitizedHeaders,
+    'request_data': sanitizedRequestData,
+  };
+  if (sanitizedResponseBody != null) {
+    apiContext['response_body'] = sanitizedResponseBody;
+  }
+
+  Sentry.configureScope((scope) {
+    scope.setTag('api.base_url', requestOptions.baseUrl);
+    scope.setTag('api.method', requestOptions.method);
+    scope.setContexts('api', apiContext);
+    if (statusCode != null) {
+      scope.setTag('http.status_code', statusCode.toString());
+      scope.level = statusCode >= 500 ? SentryLevel.error : SentryLevel.warning;
+    }
+  });
+
+  if (exception != null) {
+    Sentry.captureException(
+      exception,
+      withScope: (scope) {
+        scope.fingerprint = <String>[
+          'wealthfolio-api',
+          requestOptions.method,
+          requestOptions.path,
+          if (statusCode != null) statusCode.toString(),
+        ];
+      },
+    );
+    return;
+  }
+
+  Sentry.captureMessage(
+    message,
+    withScope: (scope) {
+      scope.fingerprint = <String>[
+        'wealthfolio-api',
+        requestOptions.method,
+        requestOptions.path,
+        if (statusCode != null) statusCode.toString(),
+      ];
+    },
+  );
+}
+
+dynamic _sanitizeValue(dynamic value) {
+  if (value is Map) {
+    return value.map<dynamic, dynamic>((dynamic key, dynamic nestedValue) {
+      final normalizedKey = key.toString().toLowerCase();
+      if (_isSensitiveKey(normalizedKey)) {
+        return MapEntry<dynamic, dynamic>(key, '[redacted]');
+      }
+      return MapEntry<dynamic, dynamic>(key, _sanitizeValue(nestedValue));
+    });
+  }
+
+  if (value is Iterable) {
+    return value.map<dynamic>(_sanitizeValue).toList(growable: false);
+  }
+
+  return value;
+}
+
+bool _isSensitiveKey(String key) {
+  return key.contains('authorization') ||
+      key.contains('password') ||
+      key.contains('token') ||
+      key.contains('secret');
 }
 
 String? _extractErrorMessage(Map<String, dynamic> body) {
