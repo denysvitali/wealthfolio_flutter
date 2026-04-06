@@ -203,7 +203,10 @@ class NetworkWealthfolioApi implements WealthfolioApi {
       );
       _throwIfRequestFailed(response);
       final body = parseMap(response.data);
-      final token = body['token']?.toString();
+      // The Wealthfolio backend returns the JWT via a Set-Cookie header
+      // (wf_session=<token>), not in the response body. The body only
+      // contains {"authenticated": true, "expiresIn": <seconds>}.
+      final token = body['token']?.toString() ?? _extractSessionToken(response);
       return AppSession(
         serverUrl: url,
         token: token,
@@ -214,6 +217,28 @@ class NetworkWealthfolioApi implements WealthfolioApi {
     } finally {
       dio.close(force: true);
     }
+  }
+
+  /// Extracts the JWT from the `wf_session` Set-Cookie header.
+  ///
+  /// The Wealthfolio backend sets an HttpOnly session cookie named `wf_session`
+  /// containing the signed JWT. We extract the token value to use as a Bearer
+  /// token in subsequent requests (the backend accepts both Bearer tokens and
+  /// cookies via its `extract_token` function).
+  static String? _extractSessionToken(Response<dynamic> response) {
+    final cookies = response.headers['set-cookie'];
+    if (cookies == null) return null;
+    for (final cookie in cookies) {
+      // Format: wf_session=TOKEN; HttpOnly; SameSite=Lax; Path=/api; Max-Age=3600[; Secure]
+      final parts = cookie.split(';');
+      if (parts.isEmpty) continue;
+      final nameValue = parts[0].trim();
+      if (nameValue.startsWith('wf_session=')) {
+        final token = nameValue.substring('wf_session='.length).trim();
+        if (token.isNotEmpty) return token;
+      }
+    }
+    return null;
   }
 
   @override
