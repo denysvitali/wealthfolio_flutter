@@ -89,3 +89,7 @@ devenv.local.nix
 # Symbols / debug info
 app.*.symbols
 app.*.map.json
+
+# Android keystore
+upload-keystore.p12
+*.p12
