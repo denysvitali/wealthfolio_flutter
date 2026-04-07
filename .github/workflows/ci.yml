@@ -161,7 +161,7 @@ jobs:
 
       - name: Run API E2E tests
         run: |
-          devenv shell -- dart run test/e2e/api_e2e.dart
+          devenv shell -- flutter pub run test/e2e/api_e2e.dart
         env:
           WEALTHFOLIO_URL: http://localhost:8088
           WEALTHFOLIO_PASSWORD: testpassword
