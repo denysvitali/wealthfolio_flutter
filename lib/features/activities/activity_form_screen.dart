@@ -331,16 +331,21 @@ class _ActivityFormScreenState extends State<ActivityFormScreen> {
     });
 
     try {
+      final symbolText = _assetIdController.text.trim().toUpperCase();
+      final currency = _currencyController.text.trim().toUpperCase();
       final data = <String, dynamic>{
         if (_isEditing) 'id': widget.activity!.id,
         'account_id': _selectedAccountId,
         if (_activityNeedsAsset)
-          'symbol': _assetIdController.text.trim().toUpperCase(),
+          'symbol': <String, dynamic>{
+            'symbol': symbolText,
+            'quoteCcy': currency,
+          },
         'activity_type': _activityType,
         'activity_date': _dateToApiStr(_activityDate),
         'quantity': _parseField(_quantityController.text),
         'unit_price': _parseField(_unitPriceController.text),
-        'currency': _currencyController.text.trim().toUpperCase(),
+        'currency': currency,
         'fee': _parseField(_feeController.text),
         'is_draft': _isDraft,
         'comment': _commentController.text.trim().isEmpty
