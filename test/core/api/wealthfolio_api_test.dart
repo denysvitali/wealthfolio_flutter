@@ -52,6 +52,55 @@ void main() {
         });
       },
     );
+
+    test('sends symbol as object with quoteCcy for asset-backed activities', () {
+      // This is the contract: symbol must be { symbol: 'AAPL', quoteCcy: 'USD' }
+      // NOT a plain string. The backend validates quoteCcy is present.
+      final payload = normalizeActivityPayloadForRest(<String, dynamic>{
+        'account_id': 'acc-1',
+        'symbol': <String, dynamic>{
+          'symbol': 'AAPL',
+          'quoteCcy': 'USD',
+        },
+        'activity_type': 'BUY',
+        'activity_date': '2026-04-07',
+        'quantity': 10,
+        'unit_price': 150.0,
+        'currency': 'USD',
+        'fee': 0,
+        'is_draft': false,
+      });
+
+      expect(payload['symbol'], <String, dynamic>{
+        'symbol': 'AAPL',
+        'quoteCcy': 'USD',
+      });
+      expect(payload['activityType'], 'BUY');
+      expect(payload['quantity'], '10');
+      expect(payload['unitPrice'], '150');
+    });
+
+    test('plain-string symbol gets normalized but quoteCcy must be added by caller', () {
+      // Sending a plain string symbol (old broken behavior) should NOT include quoteCcy.
+      // The fix sends an object { symbol, quoteCcy } — this test documents the old behavior.
+      final payload = normalizeActivityPayloadForRest(<String, dynamic>{
+        'account_id': 'acc-1',
+        'symbol': 'AAPL', // plain string — no quoteCcy
+        'activity_type': 'BUY',
+        'activity_date': '2026-04-07',
+        'quantity': 10,
+        'unit_price': 150.0,
+        'currency': 'USD',
+        'fee': 0,
+        'is_draft': false,
+      });
+
+      // normalizeActivityPayloadForRest wraps it in {symbol: 'AAPL'} but no quoteCcy.
+      // This is the pre-fix behavior. The caller (activity_form_screen.dart) is
+      // responsible for including quoteCcy when sending an asset-backed activity.
+      expect(payload['symbol'], <String, dynamic>{'symbol': 'AAPL'});
+      expect((payload['symbol'] as Map<String, dynamic>).containsKey('quoteCcy'), isFalse);
+    });
   });
 
   group('normalizeAccountPayloadForRest', () {
