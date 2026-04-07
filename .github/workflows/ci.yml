@@ -130,7 +130,7 @@ jobs:
           # Install argon2
           sudo apt-get install -y argon2
           # Hash password 'testpassword'
-          HASH=$(argon2 'testpassword' -e -t 3 -m 12 -p 4)
+          HASH=$(printf 'testpassword' | argon2 "$(openssl rand -hex 16)" -id -e -t 3 -m 12 -p 4)
           echo "PASSWORD_HASH=$HASH" >> $GITHUB_OUTPUT
         id: password
 
