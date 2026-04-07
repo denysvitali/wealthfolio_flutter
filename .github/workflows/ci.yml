@@ -141,6 +141,7 @@ jobs:
             -e WF_DB_PATH=/data/wealthfolio.db \
             -e WF_SECRET_KEY=${{ steps.secrets.outputs.SECRET_KEY }} \
             -e WF_AUTH_PASSWORD_HASH='${{ steps.password.outputs.PASSWORD_HASH }}' \
+            -e WF_CORS_ALLOW_ORIGINS=http://localhost:8088 \
             -p 8088:8088 \
             ghcr.io/afadil/wealthfolio:latest
 

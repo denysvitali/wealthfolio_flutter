@@ -77,8 +77,11 @@ void main() async {
       options: Options(headers: {'Cookie': 'wf_session=$token'}),
     );
     _checkStatus(createAccountResponse, 'create account');
-    final createdAccount = createAccountResponse.data;
-    final accountId = createdAccount['id'];
+    final createdAccount = createAccountResponse.data as Map<String, dynamic>;
+    final accountId = createdAccount['id']?.toString();
+    if (accountId == null || accountId.isEmpty) {
+      throw Exception('No account id returned from create account');
+    }
     print('  Created account: $accountId');
 
     // 5. Fetch holdings (should be empty for new account)
