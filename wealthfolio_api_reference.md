@@ -40,6 +40,11 @@ All protected routes require authentication (when auth is enabled). Base prefix:
 | PUT | `/accounts/{id}` | Update account |
 | DELETE | `/accounts/{id}` | Delete account |
 
+Mobile payload notes:
+- The REST API expects camelCase fields such as `accountType`, `isDefault`, `isActive`, and `trackingMode`.
+- `trackingMode` must be one of `TRANSACTIONS`, `HOLDINGS`, or `NOT_SET`.
+- `currency` is required on create and immutable on update in the web app contract.
+
 ### Activities
 
 | Method | Path | Description |
@@ -61,6 +66,12 @@ All protected routes require authentication (when auth is enabled). Base prefix:
 | GET | `/activities/import/templates/item` | Get single import template |
 | POST | `/activities/import/templates/link` | Link account to template |
 | POST | `/activities/import/check-duplicates` | Check for duplicate activities |
+
+Mobile payload notes:
+- The REST API expects camelCase fields such as `accountId`, `activityType`, `activityDate`, `unitPrice`, `fxRate`, and `needsReview`.
+- Asset-backed activities should send a nested `symbol` object, for example `{ "symbol": "AAPL", "exchangeMic": "XNAS" }`.
+- Cash and income-style activities rely on `amount`; if the UI only captures quantity and unit price, the client should derive `amount = quantity * unitPrice`.
+- Deletes use `DELETE /activities/{id}` rather than a query-string `id`.
 
 ### Assets
 
@@ -285,6 +296,9 @@ All protected routes require authentication (when auth is enabled). Base prefix:
 | POST | `/addons/store/staging/download` | Download addon to staging |
 | POST | `/addons/store/install-from-staging` | Install from staging |
 | DELETE | `/addons/store/staging` | Clear addon staging |
+
+Mobile support note:
+- The backend exposes addon management and runtime endpoints, but the Flutter app does not currently implement the Wealthfolio addon runtime, routing, or settings UI. Addons showing up in the web/Tauri app but not in Flutter is expected with the current mobile client.
 
 ### Wealthfolio Connect (Feature-gated: `connect-sync` or `device-sync`)
 

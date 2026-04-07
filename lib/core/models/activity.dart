@@ -9,6 +9,7 @@ class Activity {
     required this.activityDate,
     required this.quantity,
     required this.unitPrice,
+    required this.amount,
     required this.currency,
     required this.fee,
     required this.isDraft,
@@ -28,6 +29,7 @@ class Activity {
   final String activityDate;
   final double quantity;
   final double unitPrice;
+  final double amount;
   final String currency;
   final double fee;
   final bool isDraft;
@@ -40,16 +42,18 @@ class Activity {
     return Activity(
       id: parseString(map['id']),
       accountId: parseString(map['accountId'] ?? map['account_id']),
-      assetId: parseString(
-        map['assetId'] ?? map['asset_id'] ?? map['symbol'],
-      ),
+      assetId: parseString(map['assetId'] ?? map['asset_id'] ?? map['symbol']),
       activityType: parseString(map['activityType'] ?? map['activity_type']),
-      activityDate: parseString(map['date'] ?? map['activityDate'] ?? map['activity_date']),
+      activityDate: parseString(
+        map['date'] ?? map['activityDate'] ?? map['activity_date'],
+      ),
       quantity: parseDouble(map['quantity']),
       unitPrice: parseDouble(map['unitPrice'] ?? map['unit_price']),
+      amount: parseDouble(map['amount']),
       currency: parseString(map['currency']),
       fee: parseDouble(map['fee']),
-      isDraft: parseBool(map['isDraft'] ?? map['is_draft']) ||
+      isDraft:
+          parseBool(map['isDraft'] ?? map['is_draft']) ||
           parseString(map['status']).toUpperCase() == 'DRAFT',
       comment: map['comment'] as String?,
       createdAt: parseString(map['createdAt'] ?? map['created_at']),
@@ -59,10 +63,7 @@ class Activity {
 }
 
 class ActivitySearchResponse {
-  const ActivitySearchResponse({
-    required this.activities,
-    required this.total,
-  });
+  const ActivitySearchResponse({required this.activities, required this.total});
 
   final List<Activity> activities;
   final int total;

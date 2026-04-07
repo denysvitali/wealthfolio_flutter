@@ -43,6 +43,33 @@ void main() {
       expect(account.providerAccountId, 'fid-99');
     });
 
+    test('parses snake_case responses from the REST API', () {
+      final json = <String, dynamic>{
+        'id': 'acc-3',
+        'name': 'Cash',
+        'account_type': 'CASH',
+        'currency': 'USD',
+        'is_default': false,
+        'is_active': true,
+        'is_archived': false,
+        'tracking_mode': 'NOT_SET',
+        'created_at': '2024-01-01T00:00:00Z',
+        'updated_at': '2024-06-01T00:00:00Z',
+        'platform_id': 'platform-1',
+        'account_number': '001',
+        'provider_account_id': 'remote-1',
+      };
+
+      final account = Account.fromJson(json);
+
+      expect(account.accountType, 'CASH');
+      expect(account.isActive, true);
+      expect(account.trackingMode, 'NOT_SET');
+      expect(account.platformId, 'platform-1');
+      expect(account.accountNumber, '001');
+      expect(account.providerAccountId, 'remote-1');
+    });
+
     test('applies sensible defaults for missing optional fields', () {
       final json = <String, dynamic>{
         'id': 'acc-2',
@@ -59,7 +86,7 @@ void main() {
       expect(account.isDefault, false);
       expect(account.isActive, true);
       expect(account.isArchived, false);
-      expect(account.trackingMode, 'NotSet');
+      expect(account.trackingMode, 'NOT_SET');
       expect(account.group, null);
       expect(account.platformId, null);
     });

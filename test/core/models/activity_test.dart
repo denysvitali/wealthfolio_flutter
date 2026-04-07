@@ -29,6 +29,7 @@ void main() {
       expect(activity.activityDate, '2024-03-15');
       expect(activity.quantity, 10.0);
       expect(activity.unitPrice, 175.50);
+      expect(activity.amount, 0.0);
       expect(activity.currency, 'USD');
       expect(activity.fee, 0.99);
       expect(activity.isDraft, false);
@@ -44,12 +45,36 @@ void main() {
       final activity = Activity.fromJson(json);
       expect(activity.quantity, 5.0);
       expect(activity.unitPrice, 200.0);
+      expect(activity.amount, 0.0);
       expect(activity.fee, 1.0);
     });
 
+    test('parses snake_case fields and amount', () {
+      final json = <String, dynamic>{
+        'id': 'act-2',
+        'account_id': 'acc-2',
+        'asset_id': 'CASH:USD',
+        'activity_type': 'DEPOSIT',
+        'activity_date': '2024-03-16',
+        'amount': '1500.25',
+        'currency': 'USD',
+        'fee': '0',
+        'is_draft': true,
+        'created_at': '2024-03-16T10:00:00Z',
+        'updated_at': '2024-03-16T10:00:00Z',
+      };
+
+      final activity = Activity.fromJson(json);
+      expect(activity.accountId, 'acc-2');
+      expect(activity.assetId, 'CASH:USD');
+      expect(activity.activityType, 'DEPOSIT');
+      expect(activity.activityDate, '2024-03-16');
+      expect(activity.amount, 1500.25);
+      expect(activity.isDraft, true);
+    });
+
     test('recognizes DRAFT status', () {
-      final json = Map<String, dynamic>.from(validJson)
-        ..['status'] = 'DRAFT';
+      final json = Map<String, dynamic>.from(validJson)..['status'] = 'DRAFT';
 
       final activity = Activity.fromJson(json);
       expect(activity.isDraft, true);
@@ -59,6 +84,7 @@ void main() {
       final activity = Activity.fromJson(<String, dynamic>{});
       expect(activity.quantity, 0.0);
       expect(activity.unitPrice, 0.0);
+      expect(activity.amount, 0.0);
       expect(activity.fee, 0.0);
       expect(activity.isDraft, false);
       expect(activity.comment, null);
@@ -90,9 +116,7 @@ void main() {
             'updatedAt': '',
           },
         ],
-        'meta': <String, dynamic>{
-          'totalRowCount': 1,
-        },
+        'meta': <String, dynamic>{'totalRowCount': 1},
       };
 
       final response = ActivitySearchResponse.fromJson(json);

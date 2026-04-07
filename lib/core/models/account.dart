@@ -48,20 +48,24 @@ class Account {
     return Account(
       id: parseString(map['id']),
       name: parseString(map['name']),
-      accountType: parseString(map['accountType']),
+      accountType: parseString(map['accountType'] ?? map['account_type']),
       group: map['group'] as String?,
       currency: parseString(map['currency']),
-      isDefault: parseBool(map['isDefault']),
-      isActive: parseBool(map['isActive'], fallback: true),
-      isArchived: parseBool(map['isArchived']),
-      trackingMode: parseString(map['trackingMode'], fallback: 'NotSet'),
-      createdAt: parseString(map['createdAt']),
-      updatedAt: parseString(map['updatedAt']),
-      platformId: map['platformId'] as String?,
-      accountNumber: map['accountNumber'] as String?,
+      isDefault: parseBool(map['isDefault'] ?? map['is_default']),
+      isActive: parseBool(map['isActive'] ?? map['is_active'], fallback: true),
+      isArchived: parseBool(map['isArchived'] ?? map['is_archived']),
+      trackingMode: parseString(
+        map['trackingMode'] ?? map['tracking_mode'],
+        fallback: 'NOT_SET',
+      ),
+      createdAt: parseString(map['createdAt'] ?? map['created_at']),
+      updatedAt: parseString(map['updatedAt'] ?? map['updated_at']),
+      platformId: (map['platformId'] ?? map['platform_id']) as String?,
+      accountNumber: (map['accountNumber'] ?? map['account_number']) as String?,
       meta: map['meta'] as String?,
       provider: map['provider'] as String?,
-      providerAccountId: map['providerAccountId'] as String?,
+      providerAccountId:
+          (map['providerAccountId'] ?? map['provider_account_id']) as String?,
     );
   }
 }

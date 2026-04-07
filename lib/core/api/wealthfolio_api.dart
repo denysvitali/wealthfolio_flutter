@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:wealthfolio_flutter/core/models/account.dart';
@@ -41,7 +43,10 @@ abstract class WealthfolioApi {
   Future<void> deleteAccount(AppSession session, String id);
 
   // Holdings
-  Future<List<Holding>> fetchHoldings(AppSession session, {required String accountId});
+  Future<List<Holding>> fetchHoldings(
+    AppSession session, {
+    required String accountId,
+  });
   Future<Holding?> fetchHolding(
     AppSession session, {
     required String accountId,
@@ -290,7 +295,10 @@ class NetworkWealthfolioApi implements WealthfolioApi {
   ) async {
     final dio = _createDio(session.serverUrl, token: session.token);
     try {
-      final response = await dio.post<dynamic>('/accounts', data: data);
+      final response = await dio.post<dynamic>(
+        '/accounts',
+        data: normalizeAccountPayloadForRest(data),
+      );
       _throwIfRequestFailed(response);
       return Account.fromJson(response.data);
     } on DioException catch (error) {
@@ -310,7 +318,7 @@ class NetworkWealthfolioApi implements WealthfolioApi {
     try {
       final response = await dio.put<dynamic>(
         '/accounts/${Uri.encodeComponent(id)}',
-        data: data,
+        data: normalizeAccountPayloadForRest(data, isUpdate: true),
       );
       _throwIfRequestFailed(response);
       return Account.fromJson(response.data);
@@ -455,7 +463,10 @@ class NetworkWealthfolioApi implements WealthfolioApi {
   ) async {
     final dio = _createDio(session.serverUrl, token: session.token);
     try {
-      final response = await dio.post<dynamic>('/activities', data: data);
+      final response = await dio.post<dynamic>(
+        '/activities',
+        data: normalizeActivityPayloadForRest(data),
+      );
       _throwIfRequestFailed(response);
       return Activity.fromJson(response.data);
     } on DioException catch (error) {
@@ -472,7 +483,10 @@ class NetworkWealthfolioApi implements WealthfolioApi {
   ) async {
     final dio = _createDio(session.serverUrl, token: session.token);
     try {
-      final response = await dio.put<dynamic>('/activities', data: data);
+      final response = await dio.put<dynamic>(
+        '/activities',
+        data: normalizeActivityPayloadForRest(data, isUpdate: true),
+      );
       _throwIfRequestFailed(response);
       return Activity.fromJson(response.data);
     } on DioException catch (error) {
@@ -487,8 +501,7 @@ class NetworkWealthfolioApi implements WealthfolioApi {
     final dio = _createDio(session.serverUrl, token: session.token);
     try {
       final response = await dio.delete<dynamic>(
-        '/activities',
-        queryParameters: <String, dynamic>{'id': id},
+        '/activities/${Uri.encodeComponent(id)}',
       );
       _throwIfRequestFailed(response);
     } on DioException catch (error) {
@@ -1051,8 +1064,249 @@ class WealthfolioException implements Exception {
 // Private top-level helpers
 // ---------------------------------------------------------------------------
 
+Map<String, dynamic> normalizeAccountPayloadForRest(
+  Map<String, dynamic> data, {
+  bool isUpdate = false,
+}) {
+  final payload = <String, dynamic>{
+    if ((data['id'] ?? '').toString().isNotEmpty) 'id': data['id'],
+    'name': (data['name'] ?? '').toString().trim(),
+    'accountType': (data['accountType'] ?? data['account_type'] ?? '')
+        .toString()
+        .trim()
+        .toUpperCase(),
+    'group': _nullableTrimmedString(data['group']),
+    if (!isUpdate)
+      'currency': (data['currency'] ?? '').toString().trim().toUpperCase(),
+    'isDefault': _coerceBool(data['isDefault'] ?? data['is_default']),
+    'isActive': _coerceBool(
+      data['isActive'] ?? data['is_active'],
+      fallback: true,
+    ),
+    if (!isUpdate)
+      'isArchived': _coerceBool(data['isArchived'] ?? data['is_archived']),
+    if (isUpdate)
+      'isArchived':
+          data.containsKey('isArchived') || data.containsKey('is_archived')
+          ? _coerceBool(data['isArchived'] ?? data['is_archived'])
+          : null,
+    if (!isUpdate)
+      'trackingMode': _normalizeTrackingMode(
+        data['trackingMode'] ?? data['tracking_mode'],
+      ),
+    if (isUpdate)
+      'trackingMode':
+          data.containsKey('trackingMode') || data.containsKey('tracking_mode')
+          ? _normalizeTrackingMode(
+              data['trackingMode'] ?? data['tracking_mode'],
+            )
+          : null,
+    'platformId': _nullableTrimmedString(
+      data['platformId'] ?? data['platform_id'],
+    ),
+    'accountNumber': _nullableTrimmedString(
+      data['accountNumber'] ?? data['account_number'],
+    ),
+    'meta': _nullableTrimmedString(data['meta']),
+    'provider': _nullableTrimmedString(data['provider']),
+    'providerAccountId': _nullableTrimmedString(
+      data['providerAccountId'] ?? data['provider_account_id'],
+    ),
+  };
+  payload.removeWhere((key, value) => value == null);
+  return payload;
+}
+
+Map<String, dynamic> normalizeActivityPayloadForRest(
+  Map<String, dynamic> data, {
+  bool isUpdate = false,
+}) {
+  final activityType = (data['activityType'] ?? data['activity_type'] ?? '')
+      .toString()
+      .trim()
+      .toUpperCase();
+  final symbolValue = data['symbol'];
+  final normalizedSymbol = _normalizeSymbolInput(symbolValue);
+  final quantity = _normalizeDecimalField(data['quantity']);
+  final unitPrice = _normalizeDecimalField(
+    data['unitPrice'] ?? data['unit_price'],
+  );
+  final fee = _normalizeDecimalField(data['fee']);
+  final amount = _normalizeAmountField(
+    data['amount'],
+    activityType: activityType,
+    quantity: quantity,
+    unitPrice: unitPrice,
+    fee: fee,
+  );
+
+  final payload = <String, dynamic>{
+    if (isUpdate && (data['id'] ?? '').toString().isNotEmpty) 'id': data['id'],
+    'accountId': (data['accountId'] ?? data['account_id'] ?? '')
+        .toString()
+        .trim(),
+    if (normalizedSymbol != null) 'symbol': normalizedSymbol,
+    'activityType': activityType,
+    'activityDate': (data['activityDate'] ?? data['activity_date'] ?? '')
+        .toString()
+        .trim(),
+    'quantity': quantity,
+    'unitPrice': unitPrice,
+    'amount': amount,
+    'currency': (data['currency'] ?? '').toString().trim().toUpperCase(),
+    'fee': fee,
+    'status': _normalizeActivityStatus(data),
+    'comment': _nullableTrimmedString(data['comment'] ?? data['notes']),
+    'fxRate': _normalizeDecimalField(data['fxRate'] ?? data['fx_rate']),
+    'metadata': _normalizeMetadataField(data['metadata']),
+  };
+  payload.removeWhere((key, value) => value == null);
+  return payload;
+}
+
 String _normalizeUrl(String serverUrl) {
   return serverUrl.trim().replaceFirst(RegExp(r'/$'), '');
+}
+
+Map<String, dynamic>? _normalizeSymbolInput(dynamic raw) {
+  if (raw == null) return null;
+  if (raw is Map) {
+    final map = parseMap(raw);
+    final normalized = <String, dynamic>{
+      'id': _nullableTrimmedString(
+        map['id'] ?? map['assetId'] ?? map['asset_id'],
+      ),
+      'symbol': _nullableTrimmedString(
+        map['symbol'] ?? map['assetId'] ?? map['asset_id'] ?? map['ticker'],
+      )?.toUpperCase(),
+      'exchangeMic': _nullableTrimmedString(
+        map['exchangeMic'] ?? map['exchange_mic'],
+      )?.toUpperCase(),
+      'kind': _nullableTrimmedString(map['kind']),
+      'name': _nullableTrimmedString(map['name']),
+      'quoteMode': _nullableTrimmedString(
+        map['quoteMode'] ?? map['quote_mode'],
+      )?.toUpperCase(),
+      'quoteCcy': _nullableTrimmedString(
+        map['quoteCcy'] ?? map['quote_ccy'],
+      )?.toUpperCase(),
+      'instrumentType': _nullableTrimmedString(
+        map['instrumentType'] ?? map['instrument_type'],
+      )?.toUpperCase(),
+    };
+    normalized.removeWhere((key, value) => value == null);
+    return normalized.isEmpty ? null : normalized;
+  }
+
+  final symbol = raw.toString().trim().toUpperCase();
+  if (symbol.isEmpty) return null;
+  return <String, dynamic>{'symbol': symbol};
+}
+
+String? _normalizeTrackingMode(dynamic raw) {
+  final value = _nullableTrimmedString(raw)?.toUpperCase();
+  if (value == null || value.isEmpty) return 'NOT_SET';
+  return switch (value) {
+    'TRANSACTIONS' || 'HOLDINGS' || 'NOT_SET' => value,
+    'NOTSET' => 'NOT_SET',
+    _ => 'NOT_SET',
+  };
+}
+
+String? _normalizeActivityStatus(Map<String, dynamic> data) {
+  final explicit = _nullableTrimmedString(data['status'])?.toUpperCase();
+  if (explicit != null) return explicit;
+  final isDraft = data['isDraft'] ?? data['is_draft'];
+  return _coerceBool(isDraft) ? 'DRAFT' : null;
+}
+
+String? _normalizeMetadataField(dynamic raw) {
+  if (raw == null) return null;
+  if (raw is String) {
+    final trimmed = raw.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+  if (raw is Map || raw is List) {
+    return jsonEncode(raw);
+  }
+  return raw.toString();
+}
+
+String? _normalizeAmountField(
+  dynamic raw, {
+  required String activityType,
+  required String? quantity,
+  required String? unitPrice,
+  required String? fee,
+}) {
+  final explicit = _normalizeDecimalField(raw);
+  if (explicit != null) return explicit;
+
+  final quantityValue = double.tryParse(quantity ?? '');
+  final unitPriceValue = double.tryParse(unitPrice ?? '');
+  if (quantityValue == null || unitPriceValue == null) {
+    if (_isFeeLikeActivity(activityType)) {
+      return fee;
+    }
+    return null;
+  }
+
+  final computed = quantityValue * unitPriceValue;
+  if (_isAmountDrivenActivity(activityType) ||
+      _isFeeLikeActivity(activityType)) {
+    return _decimalToApiString(computed);
+  }
+  return null;
+}
+
+bool _isAmountDrivenActivity(String activityType) {
+  return switch (activityType) {
+    'DEPOSIT' ||
+    'WITHDRAWAL' ||
+    'DIVIDEND' ||
+    'INTEREST' ||
+    'TRANSFER_IN' ||
+    'TRANSFER_OUT' => true,
+    _ => false,
+  };
+}
+
+bool _isFeeLikeActivity(String activityType) {
+  return activityType == 'FEE' || activityType == 'TAX';
+}
+
+String? _normalizeDecimalField(dynamic raw) {
+  if (raw == null) return null;
+  if (raw is num) return _decimalToApiString(raw.toDouble());
+  final trimmed = raw.toString().trim();
+  if (trimmed.isEmpty) return null;
+  final parsed = double.tryParse(trimmed);
+  return parsed == null ? null : _decimalToApiString(parsed);
+}
+
+String _decimalToApiString(double value) {
+  if (value == value.truncateToDouble()) {
+    return value.toInt().toString();
+  }
+  return value
+      .toStringAsFixed(8)
+      .replaceFirst(RegExp(r'0+$'), '')
+      .replaceFirst(RegExp(r'\.$'), '');
+}
+
+String? _nullableTrimmedString(dynamic raw) {
+  if (raw == null) return null;
+  final trimmed = raw.toString().trim();
+  return trimmed.isEmpty ? null : trimmed;
+}
+
+bool _coerceBool(dynamic raw, {bool fallback = false}) {
+  if (raw == null) return fallback;
+  if (raw is bool) return raw;
+  final value = raw.toString().trim().toLowerCase();
+  if (value == 'true') return true;
+  if (value == 'false') return false;
+  return fallback;
 }
 
 String _formatDioError(DioException error) {
