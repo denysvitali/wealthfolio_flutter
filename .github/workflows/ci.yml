@@ -166,6 +166,13 @@ jobs:
           WEALTHFOLIO_URL: http://localhost:8088
           WEALTHFOLIO_PASSWORD: testpassword
 
+      - name: Run Activity E2E Tests
+        run: |
+          devenv shell -- flutter test integration_test/activity_e2e_test.dart
+        env:
+          WEALTHFOLIO_URL: http://localhost:8088
+          WEALTHFOLIO_PASSWORD: testpassword
+
       - name: Stop and remove Wealthfolio Docker
         if: always()
         run: |

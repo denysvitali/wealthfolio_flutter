@@ -1,0 +1,369 @@
+openapi: 3.1.0
+info:
+  title: Wealthfolio Activity API
+  version: 1.0.0
+  description: |
+    Canonical contract for Wealthfolio activity CRUD operations.
+    This spec is the source of truth for the Flutter client.
+    Generate Dart types with: openapi-generator-cli generate -i activity_contract.yaml
+
+servers:
+  - url: http://localhost:8088/api/v1
+    description: Local development
+
+paths:
+  /activities:
+    post:
+      operationId: createActivity
+      summary: Create a new activity
+      tags: [Activities]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivityCreateRequest'
+      responses:
+        '201':
+          description: Activity created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityResponse'
+        '400':
+          description: Validation error (e.g. missing quoteCcy)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    put:
+      operationId: updateActivity
+      summary: Update an existing activity
+      tags: [Activities]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivityUpdateRequest'
+      responses:
+        '200':
+          description: Activity updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /activities/search:
+    post:
+      operationId: searchActivities
+      summary: Search activities (paginated)
+      tags: [Activities]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivitySearchRequest'
+      responses:
+        '200':
+          description: Paginated activity results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivitySearchResponse'
+
+  /market-data/search:
+    get:
+      operationId: searchSymbols
+      summary: Search symbols for activity form autocomplete
+      tags: [Market Data]
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+          example: AAPL
+      responses:
+        '200':
+          description: Symbol search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SymbolSearchResult'
+
+components:
+  schemas:
+    ActivityCreateRequest:
+      type: object
+      required:
+        - accountId
+        - activityType
+        - activityDate
+        - currency
+      properties:
+        id:
+          type: string
+          description: Ignored on create — server generates ID
+        accountId:
+          type: string
+          description: Target account UUID
+          example: acc-1234
+        activityType:
+          type: string
+          enum:
+            - BUY
+            - SELL
+            - DIVIDEND
+            - INTEREST
+            - DEPOSIT
+            - WITHDRAWAL
+            - TRANSFER_IN
+            - TRANSFER_OUT
+            - FEE
+            - TAX
+            - SPLIT
+            - CONVERSION_IN
+            - CONVERSION_OUT
+            - STAKE
+            - UNSTAKE
+          description: |
+            For DEPOSIT, WITHDRAWAL, TRANSFER_IN, TRANSFER_OUT, FEE, TAX:
+            symbol is NOT required.
+            For all other types: symbol is required.
+        activityDate:
+          type: string
+          format: date
+          example: '2026-04-07'
+        symbol:
+          $ref: '#/components/schemas/SymbolInput'
+          description: |
+            Required for asset-backed activities (BUY, SELL, DIVIDEND, etc.).
+            Must NOT be a plain string — must be a SymbolInput object.
+            The backend validates that quoteCcy is present.
+        quantity:
+          type: number
+          format: double
+          example: 10.0
+        unitPrice:
+          type: number
+          format: double
+          example: 150.0
+        amount:
+          type: number
+          format: double
+          description: |
+            For amount-driven activities (DEPOSIT, WITHDRAWAL, etc.).
+            If provided, overrides quantity * unitPrice derivation.
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+          example: USD
+          description: ISO 4217 currency code
+        fee:
+          type: number
+          format: double
+          example: 0.0
+        isDraft:
+          type: boolean
+          default: false
+        comment:
+          type: string
+          nullable: true
+        fxRate:
+          type: number
+          format: double
+          nullable: true
+        metadata:
+          type: string
+          description: JSON-encoded metadata object
+
+    ActivityUpdateRequest:
+      allOf:
+        - type: object
+          required:
+            - id
+          properties:
+            id:
+              type: string
+              description: Activity UUID to update
+        - $ref: '#/components/schemas/ActivityCreateRequest'
+          # accountId and activityType are immutable on update
+
+    ActivitySearchRequest:
+      type: object
+      properties:
+        page:
+          type: integer
+          default: 1
+        pageSize:
+          type: integer
+          default: 50
+        accountId:
+          type: string
+          nullable: true
+        activityType:
+          type: string
+          nullable: true
+        assetKeyword:
+          type: string
+          nullable: true
+        sort:
+          type: string
+          nullable: true
+
+    ActivityResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        accountId:
+          type: string
+        assetId:
+          type: string
+        symbol:
+          $ref: '#/components/schemas/SymbolInput'
+        activityType:
+          type: string
+        activityDate:
+          type: string
+          format: date
+        quantity:
+          type: number
+          format: double
+        unitPrice:
+          type: number
+          format: double
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+        fee:
+          type: number
+          format: double
+        isDraft:
+          type: boolean
+        status:
+          type: string
+        comment:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    SymbolInput:
+      type: object
+      required:
+        - symbol
+        - quoteCcy
+      properties:
+        symbol:
+          type: string
+          description: Ticker symbol in uppercase
+          example: AAPL
+        exchangeMic:
+          type: string
+          nullable: true
+          description: Market exchange MIC code
+          example: XNAS
+        kind:
+          type: string
+          nullable: true
+        name:
+          type: string
+          nullable: true
+        quoteMode:
+          type: string
+          nullable: true
+        quoteCcy:
+          type: string
+          minLength: 3
+          maxLength: 3
+          description: |
+            **Critical field.** Quote currency (ISO 4217).
+            Required for all asset-backed activities.
+            Example: USD, EUR, GBP
+          example: USD
+        instrumentType:
+          type: string
+          nullable: true
+      description: |
+        IMPORTANT: Symbol must always be an object with both `symbol` and `quoteCcy`.
+        A plain string like `"AAPL"` is NOT valid and will be rejected with
+        HTTP 400: "Invalid data: Quote currency is required. Please re-select the symbol."
+
+    SymbolSearchResult:
+      type: object
+      properties:
+        id:
+          type: string
+        symbol:
+          type: string
+        ticker:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        asset_type:
+          type: string
+        assetType:
+          type: string
+        quoteCcy:
+          type: string
+          nullable: true
+
+    ActivitySearchResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityResponse'
+        meta:
+          type: object
+          properties:
+            totalRowCount:
+              type: integer
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            type: string
+
+  responses:
+    Unauthorized:
+      description: Authentication required or session expired
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: unauthorized
