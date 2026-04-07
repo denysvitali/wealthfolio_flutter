@@ -10,8 +10,27 @@ abstract class SessionStorage {
   Future<void> saveSession(AppSession session);
   Future<AppSession?> loadSession();
   Future<void> clearSession();
+  Future<void> clearCredentials();
+  Future<void> saveCredentials({
+    required String serverUrl,
+    required String username,
+    required String password,
+  });
+  Future<StoredCredentials?> loadCredentials();
   Future<void> saveLastServerUrl(String url);
   Future<String?> loadLastServerUrl();
+}
+
+class StoredCredentials {
+  const StoredCredentials({
+    required this.serverUrl,
+    required this.username,
+    required this.password,
+  });
+
+  final String serverUrl;
+  final String username;
+  final String password;
 }
 
 // ---------------------------------------------------------------------------
@@ -25,6 +44,7 @@ class SecureSessionStorage implements SessionStorage {
   static const _serverUrlKey = 'wealthfolio.server_url';
   static const _tokenKey = 'wealthfolio.token';
   static const _usernameKey = 'wealthfolio.username';
+  static const _passwordKey = 'wealthfolio.password';
 
   final FlutterSecureStorage _secureStorage;
 
@@ -56,17 +76,51 @@ class SecureSessionStorage implements SessionStorage {
       return null;
     }
 
-    return AppSession(
-      serverUrl: serverUrl,
-      token: token,
-      username: username,
-    );
+    return AppSession(serverUrl: serverUrl, token: token, username: username);
   }
 
   @override
   Future<void> clearSession() async {
     await _secureStorage.delete(key: _tokenKey);
+  }
+
+  @override
+  Future<void> clearCredentials() async {
+    await _secureStorage.delete(key: _tokenKey);
     await _secureStorage.delete(key: _usernameKey);
+    await _secureStorage.delete(key: _passwordKey);
+  }
+
+  @override
+  Future<void> saveCredentials({
+    required String serverUrl,
+    required String username,
+    required String password,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_serverUrlKey, serverUrl.trim());
+    await _secureStorage.write(key: _usernameKey, value: username.trim());
+    await _secureStorage.write(key: _passwordKey, value: password);
+  }
+
+  @override
+  Future<StoredCredentials?> loadCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    final serverUrl = prefs.getString(_serverUrlKey);
+    final username = await _secureStorage.read(key: _usernameKey);
+    final password = await _secureStorage.read(key: _passwordKey);
+    if (serverUrl == null ||
+        serverUrl.isEmpty ||
+        password == null ||
+        password.isEmpty) {
+      return null;
+    }
+
+    return StoredCredentials(
+      serverUrl: serverUrl,
+      username: username ?? '',
+      password: password,
+    );
   }
 
   @override
@@ -89,6 +143,7 @@ class SecureSessionStorage implements SessionStorage {
 class MemorySessionStorage implements SessionStorage {
   AppSession? _session;
   String? _lastServerUrl;
+  StoredCredentials? _credentials;
 
   @override
   Future<void> saveSession(AppSession session) async {
@@ -103,6 +158,29 @@ class MemorySessionStorage implements SessionStorage {
   Future<void> clearSession() async {
     _session = null;
   }
+
+  @override
+  Future<void> clearCredentials() async {
+    _session = null;
+    _credentials = null;
+  }
+
+  @override
+  Future<void> saveCredentials({
+    required String serverUrl,
+    required String username,
+    required String password,
+  }) async {
+    _credentials = StoredCredentials(
+      serverUrl: serverUrl,
+      username: username,
+      password: password,
+    );
+    _lastServerUrl = serverUrl;
+  }
+
+  @override
+  Future<StoredCredentials?> loadCredentials() async => _credentials;
 
   @override
   Future<void> saveLastServerUrl(String url) async {

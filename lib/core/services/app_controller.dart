@@ -83,12 +83,13 @@ class AppController extends ChangeNotifier {
       return;
     }
 
-    _session = storedSession;
+    var activeSession = storedSession;
+    _session = activeSession;
     Sentry.configureScope((scope) {
       scope.setUser(
         SentryUser(
-          username: storedSession.username,
-          data: <String, dynamic>{'server_url': storedSession.serverUrl},
+          username: activeSession.username,
+          data: <String, dynamic>{'server_url': activeSession.serverUrl},
         ),
       );
     });
@@ -99,17 +100,31 @@ class AppController extends ChangeNotifier {
 
     try {
       // Validate the restored session.
-      await _api.getAuthStatus(storedSession);
+      await _api.getAuthStatus(activeSession);
     } on WealthfolioException catch (e) {
       if (_isAuthError(e)) {
-        _clearSession();
-        return;
+        final restoredSession = await _restoreExpiredSession();
+        if (restoredSession == null) {
+          _clearSession();
+          return;
+        }
+
+        activeSession = restoredSession;
+        _session = activeSession;
+        Sentry.configureScope((scope) {
+          scope.setUser(
+            SentryUser(
+              username: activeSession.username,
+              data: <String, dynamic>{'server_url': activeSession.serverUrl},
+            ),
+          );
+        });
       }
     }
 
     // Load accounts first — holdings require accountId.
     try {
-      await _fetchAccounts(storedSession);
+      await _fetchAccounts(activeSession);
     } on WealthfolioException catch (e) {
       if (_isAuthError(e)) {
         _clearSession();
@@ -122,8 +137,8 @@ class AppController extends ChangeNotifier {
 
     // Fetch holdings per-account and base currency in parallel.
     await Future.wait<void>(<Future<void>>[
-      _fetchHoldingsForAccounts(storedSession, _accounts),
-      _loadBaseCurrency(storedSession),
+      _fetchHoldingsForAccounts(activeSession, _accounts),
+      _loadBaseCurrency(activeSession),
     ]);
   }
 
@@ -147,6 +162,21 @@ class AppController extends ChangeNotifier {
     _errorMessage = 'Saved session expired. Sign in again.';
     _storage.clearSession();
     notifyListeners();
+  }
+
+  Future<AppSession?> _restoreExpiredSession() async {
+    final credentials = await _storage.loadCredentials();
+    if (credentials == null) {
+      return null;
+    }
+
+    final refreshedSession = await _api.signIn(
+      serverUrl: credentials.serverUrl,
+      username: credentials.username,
+      password: credentials.password,
+    );
+    await _storage.saveSession(refreshedSession);
+    return refreshedSession;
   }
 
   // --- Auth -----------------------------------------------------------------
@@ -182,6 +212,11 @@ class AppController extends ChangeNotifier {
         );
       });
       _stage = AppStage.authenticated;
+      await _storage.saveCredentials(
+        serverUrl: normalizedUrl,
+        username: username.trim(),
+        password: password,
+      );
       await _storage.saveSession(nextSession);
 
       // Fetch accounts first — holdings require accountId.
@@ -206,7 +241,7 @@ class AppController extends ChangeNotifier {
     _lastRefreshedAt = null;
     _baseCurrency = 'USD';
     _stage = AppStage.unauthenticated;
-    await _storage.clearSession();
+    await _storage.clearCredentials();
     notifyListeners();
   }
 
@@ -428,7 +463,10 @@ class AppController extends ChangeNotifier {
     );
     final items = switch (raw['data']) {
       final List<dynamic> list => list,
-      _ => raw['history'] is List ? raw['history'] as List<dynamic> : const <dynamic>[],
+      _ =>
+        raw['history'] is List
+            ? raw['history'] as List<dynamic>
+            : const <dynamic>[],
     };
     return items.map(PerformanceHistory.fromJson).toList(growable: false);
   }
