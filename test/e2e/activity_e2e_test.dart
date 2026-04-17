@@ -1,26 +1,25 @@
+@Tags(<String>['e2e'])
+library;
+
 import 'dart:io';
 
 import 'package:dio/dio.dart';
-import 'package:integration_test/integration_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// E2E integration test for activity creation against a running Wealthfolio server.
+/// E2E test for activity creation against a running Wealthfolio server.
 /// Uses the real REST API via Dio.
 ///
 /// Required env vars:
 ///   WEALTHFOLIO_URL - e.g. http://localhost:8088
 ///   WEALTHFOLIO_PASSWORD - password for authentication
 ///
-/// Run with: dart run integration_test/activity_e2e_test.dart
-///    or: flutter test integration_test/activity_e2e_test.dart
+/// Run with: flutter test test/e2e/activity_e2e_test.dart
 ///
-/// This test validates the activity contract: symbol must be an object with
-/// quoteCcy, not a plain string. It catches contract mismatches at test time
-/// rather than at runtime in the app.
+/// Validates the activity contract: symbol must be an object with
+/// quoteCcy, not a plain string. Catches contract mismatches at test
+/// time rather than at runtime in the app.
 
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-
   final url = Platform.environment['WEALTHFOLIO_URL'] ?? 'http://localhost:8088';
   final password = Platform.environment['WEALTHFOLIO_PASSWORD'] ?? 'testpassword';
 
@@ -38,7 +37,6 @@ void main() {
     });
 
     tearDownAll(() async {
-      // Clean up test account if created
       if (testAccountId != null && token != null) {
         try {
           await dio.delete<dynamic>(
@@ -145,7 +143,7 @@ void main() {
         'activityType': 'DIVIDEND',
         'activityDate': '2026-04-07',
         'quantity': 10.0,
-        'unitPrice': 1.50, // dividend per share
+        'unitPrice': 1.50,
         'currency': 'USD',
         'fee': 0.0,
         'isDraft': false,
@@ -211,7 +209,7 @@ void main() {
         'currency': 'USD',
         'fee': 0.0,
         'isDraft': false,
-        'symbol': 'AAPL', // Wrong: should be { symbol: 'AAPL', quoteCcy: 'USD' }
+        'symbol': 'AAPL',
       };
 
       try {
@@ -245,7 +243,6 @@ void main() {
       expect(response.data, isA<List<dynamic>>());
       final results = response.data as List<dynamic>;
       expect(results, isNotEmpty);
-      // Each result should have symbol and quote currency info
       final first = results.first as Map<String, dynamic>;
       expect(first['symbol'] ?? first['ticker'], isNotEmpty);
     });
