@@ -7,8 +7,7 @@ class ExchangeRate {
     required this.toCurrency,
     required this.rate,
     required this.source,
-    required this.createdAt,
-    required this.updatedAt,
+    required this.timestamp,
   });
 
   final String id;
@@ -19,19 +18,22 @@ class ExchangeRate {
   /// e.g. 'YAHOO', 'MANUAL', 'ECB'
   final String source;
 
-  final String createdAt;
-  final String updatedAt;
+  /// ISO 8601 timestamp of the last observation.
+  final String timestamp;
 
   factory ExchangeRate.fromJson(dynamic raw) {
     final map = parseMap(raw);
     return ExchangeRate(
       id: parseString(map['id']),
-      fromCurrency: parseString(map['from_currency']),
-      toCurrency: parseString(map['to_currency']),
+      fromCurrency: parseString(
+        map['fromCurrency'] ?? map['from_currency'],
+      ),
+      toCurrency: parseString(map['toCurrency'] ?? map['to_currency']),
       rate: parseDouble(map['rate']),
       source: parseString(map['source']),
-      createdAt: parseString(map['created_at']),
-      updatedAt: parseString(map['updated_at']),
+      timestamp: parseString(
+        map['timestamp'] ?? map['updatedAt'] ?? map['updated_at'],
+      ),
     );
   }
 }

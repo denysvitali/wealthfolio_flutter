@@ -27,7 +27,9 @@ void main() {
       expect(payload['unitPrice'], '150.5');
       expect(payload['fee'], '1.25');
       expect(payload['status'], 'DRAFT');
-      expect(payload['comment'], 'note');
+      // Server struct uses `notes` (accepts `comment` as a serde alias).
+      expect(payload['notes'], 'note');
+      expect(payload.containsKey('comment'), isFalse);
       expect(payload['symbol'], <String, dynamic>{'symbol': 'AAPL'});
     });
 

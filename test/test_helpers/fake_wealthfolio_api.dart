@@ -43,12 +43,7 @@ class FakeWealthfolioApi implements WealthfolioApi {
        performanceHistory =
            performanceHistory ??
            const <Map<String, dynamic>>[
-             <String, dynamic>{
-               'date': '2026-01-01',
-               'value': 0,
-               'gain_loss': 0,
-               'gain_loss_percent': 0,
-             },
+             <String, dynamic>{'date': '2026-01-01', 'value': 0},
            ],
        allocationsResponse =
            allocationsResponse ??
@@ -154,8 +149,19 @@ class FakeWealthfolioApi implements WealthfolioApi {
     required String itemId,
     String? startDate,
     String? endDate,
+    String? trackingMode,
   }) async {
-    return <String, dynamic>{'data': performanceHistory};
+    return <String, dynamic>{
+      'id': itemId,
+      'returns': performanceHistory,
+      'currency': 'USD',
+      'periodGain': 0,
+      'simpleReturn': 0,
+      'annualizedSimpleReturn': 0,
+      'volatility': 0,
+      'maxDrawdown': 0,
+      'isHoldingsMode': false,
+    };
   }
 
   @override
@@ -167,16 +173,23 @@ class FakeWealthfolioApi implements WealthfolioApi {
   }
 
   @override
-  Future<Map<String, dynamic>> fetchIncomeSummary(
+  Future<List<dynamic>> fetchIncomeSummary(
     AppSession session, {
     String? accountId,
   }) async {
-    return const <String, dynamic>{
-      'currency': 'USD',
-      'total_dividends': 0,
-      'total_interest': 0,
-      'by_month': <Map<String, dynamic>>[],
-    };
+    return const <Map<String, dynamic>>[
+      <String, dynamic>{
+        'period': 'TOTAL',
+        'byMonth': <String, dynamic>{},
+        'byType': <String, dynamic>{},
+        'byAsset': <String, dynamic>{},
+        'byCurrency': <String, dynamic>{},
+        'byAccount': <String, dynamic>{},
+        'totalIncome': 0,
+        'currency': 'USD',
+        'monthlyAverage': 0,
+      },
+    ];
   }
 
   @override
@@ -185,12 +198,18 @@ class FakeWealthfolioApi implements WealthfolioApi {
     String? date,
   }) async {
     return const <String, dynamic>{
-      'total': 0,
-      'assets_total': 0,
-      'liabilities_total': 0,
-      'investments_total': 0,
-      'cash_total': 0,
-      'alternatives_total': 0,
+      'date': '2026-01-01',
+      'assets': <String, dynamic>{
+        'total': 0,
+        'breakdown': <Map<String, dynamic>>[],
+      },
+      'liabilities': <String, dynamic>{
+        'total': 0,
+        'breakdown': <Map<String, dynamic>>[],
+      },
+      'netWorth': 0,
+      'currency': 'USD',
+      'staleAssets': <Map<String, dynamic>>[],
     };
   }
 
@@ -208,15 +227,20 @@ class FakeWealthfolioApi implements WealthfolioApi {
     AppSession session, {
     required String itemType,
     required String itemId,
+    String? startDate,
+    String? endDate,
+    String? trackingMode,
   }) async {
-    return const <String, dynamic>{
-      'total_value': 0,
-      'total_gain_loss': 0,
-      'total_gain_loss_percent': 0,
-      'day_gain_loss': 0,
-      'day_gain_loss_percent': 0,
-      'contributions': 0,
-      'withdrawals': 0,
+    return <String, dynamic>{
+      'id': itemId,
+      'returns': const <Map<String, dynamic>>[],
+      'currency': 'USD',
+      'periodGain': 0,
+      'simpleReturn': 0,
+      'annualizedSimpleReturn': 0,
+      'volatility': 0,
+      'maxDrawdown': 0,
+      'isHoldingsMode': false,
     };
   }
 

@@ -21,7 +21,7 @@ class IncomeScreen extends StatefulWidget {
 }
 
 class _IncomeScreenState extends State<IncomeScreen> {
-  IncomeSummary? _summary;
+  IncomeSummaryPeriods? _periods;
   bool _loading = true;
   String? _error;
   String? _selectedAccountId;
@@ -44,7 +44,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
       );
       if (!mounted) return;
       setState(() {
-        _summary = result;
+        _periods = result;
         _loading = false;
       });
     } on Exception catch (e) {
@@ -63,7 +63,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
       );
       if (!mounted) return;
       setState(() {
-        _summary = result;
+        _periods = result;
         _error = null;
       });
     } on Exception catch (e) {
@@ -92,14 +92,14 @@ class _IncomeScreenState extends State<IncomeScreen> {
                   message: _error!,
                   onRetry: _loadData,
                 )
-              : _summary == null
+              : _periods == null
                   ? const EmptyStateCard(
                       icon: Icons.account_balance_wallet_outlined,
                       title: 'No income data',
                       subtitle: 'Income summary will appear here once available.',
                     )
                   : _IncomeContent(
-                      summary: _summary!,
+                      summary: _periods!.total,
                       accounts: widget.controller.accounts,
                       selectedAccountId: _selectedAccountId,
                       onAccountChanged: _onAccountChanged,
@@ -376,9 +376,10 @@ class _MonthlyBreakdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final byMonth = summary.byMonth;
+    final entries = summary.byMonth.entries.toList()
+      ..sort((a, b) => b.key.compareTo(a.key));
 
-    if (byMonth.isEmpty) {
+    if (entries.isEmpty) {
       return const EmptyStateCard(
         icon: Icons.calendar_today_outlined,
         title: 'No monthly data',
@@ -404,12 +405,13 @@ class _MonthlyBreakdown extends StatelessWidget {
           child: ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: byMonth.length,
+            itemCount: entries.length,
             separatorBuilder: (context, index) => const Divider(height: 1),
             itemBuilder: (context, index) {
-              final item = byMonth[index];
+              final entry = entries[index];
               return _MonthlyIncomeTile(
-                item: item,
+                month: entry.key,
+                amount: entry.value,
                 currency: summary.currency,
               );
             },
@@ -422,11 +424,13 @@ class _MonthlyBreakdown extends StatelessWidget {
 
 class _MonthlyIncomeTile extends StatelessWidget {
   const _MonthlyIncomeTile({
-    required this.item,
+    required this.month,
+    required this.amount,
     required this.currency,
   });
 
-  final MonthlyIncome item;
+  final String month;
+  final double amount;
   final String currency;
 
   String _formatMonth(String isoMonth) {
@@ -458,7 +462,6 @@ class _MonthlyIncomeTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final total = item.dividends + item.interest;
 
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -467,11 +470,10 @@ class _MonthlyIncomeTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Month label
           Expanded(
-            flex: 2,
+            flex: 3,
             child: Text(
-              _formatMonth(item.month),
+              _formatMonth(month),
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -479,43 +481,14 @@ class _MonthlyIncomeTile extends StatelessWidget {
               ),
             ),
           ),
-          // Dividends
           Expanded(
-            flex: 3,
+            flex: 4,
             child: Text(
-              formatCurrency(item.dividends, currency: currency),
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.gainLossColor(item.dividends),
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.right,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          // Interest
-          Expanded(
-            flex: 3,
-            child: Text(
-              formatCurrency(item.interest, currency: currency),
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.gainLossColor(item.interest),
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.right,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          // Total
-          Expanded(
-            flex: 3,
-            child: Text(
-              formatCurrency(total, currency: currency),
+              formatCurrency(amount, currency: currency),
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
-                color: theme.colorScheme.onSurface,
+                color: AppColors.gainLossColor(amount),
               ),
               textAlign: TextAlign.right,
             ),

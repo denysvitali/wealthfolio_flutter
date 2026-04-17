@@ -88,11 +88,15 @@ abstract class WealthfolioApi {
     required String itemId,
     String? startDate,
     String? endDate,
+    String? trackingMode,
   });
   Future<Map<String, dynamic>> fetchPerformanceSummary(
     AppSession session, {
     required String itemType,
     required String itemId,
+    String? startDate,
+    String? endDate,
+    String? trackingMode,
   });
 
   // Net Worth
@@ -136,7 +140,7 @@ abstract class WealthfolioApi {
   Future<void> deleteExchangeRate(AppSession session, String id);
 
   // Income
-  Future<Map<String, dynamic>> fetchIncomeSummary(
+  Future<List<dynamic>> fetchIncomeSummary(
     AppSession session, {
     String? accountId,
   });
@@ -544,6 +548,7 @@ class NetworkWealthfolioApi implements WealthfolioApi {
     required String itemId,
     String? startDate,
     String? endDate,
+    String? trackingMode,
   }) async {
     final dio = _createDio(session.serverUrl, token: session.token);
     try {
@@ -552,6 +557,7 @@ class NetworkWealthfolioApi implements WealthfolioApi {
         'itemId': itemId,
         'startDate': ?startDate,
         'endDate': ?endDate,
+        'trackingMode': ?trackingMode,
       };
       final response = await dio.post<dynamic>(
         '/performance/history',
@@ -571,12 +577,22 @@ class NetworkWealthfolioApi implements WealthfolioApi {
     AppSession session, {
     required String itemType,
     required String itemId,
+    String? startDate,
+    String? endDate,
+    String? trackingMode,
   }) async {
     final dio = _createDio(session.serverUrl, token: session.token);
     try {
+      final body = <String, dynamic>{
+        'itemType': itemType,
+        'itemId': itemId,
+        'startDate': ?startDate,
+        'endDate': ?endDate,
+        'trackingMode': ?trackingMode,
+      };
       final response = await dio.post<dynamic>(
         '/performance/summary',
-        data: <String, dynamic>{'itemType': itemType, 'itemId': itemId},
+        data: body,
       );
       _throwIfRequestFailed(response);
       return parseMap(response.data);
@@ -845,7 +861,7 @@ class NetworkWealthfolioApi implements WealthfolioApi {
   // -------------------------------------------------------------------------
 
   @override
-  Future<Map<String, dynamic>> fetchIncomeSummary(
+  Future<List<dynamic>> fetchIncomeSummary(
     AppSession session, {
     String? accountId,
   }) async {
@@ -858,7 +874,7 @@ class NetworkWealthfolioApi implements WealthfolioApi {
             : null,
       );
       _throwIfRequestFailed(response);
-      return parseMap(response.data);
+      return parseList(response.data);
     } on DioException catch (error) {
       throw WealthfolioException(_formatDioError(error));
     } finally {
@@ -1156,7 +1172,8 @@ Map<String, dynamic> normalizeActivityPayloadForRest(
     'currency': (data['currency'] ?? '').toString().trim().toUpperCase(),
     'fee': fee,
     'status': _normalizeActivityStatus(data),
-    'comment': _nullableTrimmedString(data['comment'] ?? data['notes']),
+    // Server struct uses `notes` (accepts `comment` as a serde alias).
+    'notes': _nullableTrimmedString(data['notes'] ?? data['comment']),
     'fxRate': _normalizeDecimalField(data['fxRate'] ?? data['fx_rate']),
     'metadata': _normalizeMetadataField(data['metadata']),
   };

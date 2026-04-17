@@ -3,15 +3,14 @@ import 'package:wealthfolio_flutter/core/models/exchange_rate.dart';
 
 void main() {
   group('ExchangeRate.fromJson', () {
-    test('parses a complete exchange rate', () {
+    test('parses a complete exchange rate (camelCase)', () {
       final json = <String, dynamic>{
         'id': 'er-1',
-        'from_currency': 'USD',
-        'to_currency': 'EUR',
+        'fromCurrency': 'USD',
+        'toCurrency': 'EUR',
         'rate': 0.9215,
         'source': 'ECB',
-        'created_at': '2024-03-15T00:00:00Z',
-        'updated_at': '2024-03-15T00:00:00Z',
+        'timestamp': '2024-03-15T00:00:00Z',
       };
 
       final rate = ExchangeRate.fromJson(json);
@@ -20,21 +19,24 @@ void main() {
       expect(rate.toCurrency, 'EUR');
       expect(rate.rate, 0.9215);
       expect(rate.source, 'ECB');
+      expect(rate.timestamp, '2024-03-15T00:00:00Z');
     });
 
-    test('parses rate from string value', () {
+    test('accepts legacy snake_case field names', () {
       final json = <String, dynamic>{
         'id': 'er-2',
         'from_currency': 'GBP',
         'to_currency': 'USD',
         'rate': '1.2650',
         'source': 'YAHOO',
-        'created_at': '',
-        'updated_at': '',
+        'updated_at': '2024-01-02T00:00:00Z',
       };
 
       final rate = ExchangeRate.fromJson(json);
+      expect(rate.fromCurrency, 'GBP');
+      expect(rate.toCurrency, 'USD');
       expect(rate.rate, 1.2650);
+      expect(rate.timestamp, '2024-01-02T00:00:00Z');
     });
 
     test('handles null input', () {

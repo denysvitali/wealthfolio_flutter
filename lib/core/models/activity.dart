@@ -55,7 +55,8 @@ class Activity {
       isDraft:
           parseBool(map['isDraft'] ?? map['is_draft']) ||
           parseString(map['status']).toUpperCase() == 'DRAFT',
-      comment: map['comment'] as String?,
+      // Server serializes as `notes`; keep `comment` as a defensive fallback.
+      comment: (map['notes'] ?? map['comment']) as String?,
       createdAt: parseString(map['createdAt'] ?? map['created_at']),
       updatedAt: parseString(map['updatedAt'] ?? map['updated_at']),
     );

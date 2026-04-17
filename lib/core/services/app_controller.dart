@@ -421,13 +421,13 @@ class AppController extends ChangeNotifier {
 
   // --- Income ---------------------------------------------------------------
 
-  Future<IncomeSummary> fetchIncomeSummary({String? accountId}) async {
+  Future<IncomeSummaryPeriods> fetchIncomeSummary({String? accountId}) async {
     final session = _session;
     if (session == null) {
       throw const WealthfolioException('Not signed in.');
     }
     final raw = await _api.fetchIncomeSummary(session, accountId: accountId);
-    return IncomeSummary.fromJson(raw);
+    return IncomeSummaryPeriods.fromJson(raw);
   }
 
   // --- Net Worth ------------------------------------------------------------
@@ -462,6 +462,7 @@ class AppController extends ChangeNotifier {
     required String itemId,
     String? startDate,
     String? endDate,
+    String? trackingMode,
   }) async {
     final session = _session;
     if (session == null) {
@@ -473,20 +474,20 @@ class AppController extends ChangeNotifier {
       itemId: itemId,
       startDate: startDate,
       endDate: endDate,
+      trackingMode: trackingMode,
     );
-    final items = switch (raw['data']) {
-      final List<dynamic> list => list,
-      _ =>
-        raw['history'] is List
-            ? raw['history'] as List<dynamic>
-            : const <dynamic>[],
-    };
-    return items.map(PerformanceHistory.fromJson).toList(growable: false);
+    // Server returns a single PerformanceMetrics object. Individual
+    // points live under `returns` as `{date, value}` pairs.
+    final metrics = PerformanceMetrics.fromJson(raw);
+    return metrics.returns;
   }
 
   Future<PerformanceMetrics> fetchPerformanceSummary({
     required String itemType,
     required String itemId,
+    String? startDate,
+    String? endDate,
+    String? trackingMode,
   }) async {
     final session = _session;
     if (session == null) {
@@ -496,6 +497,9 @@ class AppController extends ChangeNotifier {
       session,
       itemType: itemType,
       itemId: itemId,
+      startDate: startDate,
+      endDate: endDate,
+      trackingMode: trackingMode,
     );
     return PerformanceMetrics.fromJson(raw);
   }
