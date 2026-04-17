@@ -65,6 +65,84 @@ void main() {
       },
     );
 
+    test(
+      'initialize without a stored session restores from credentials',
+      () async {
+        final storage = MemorySessionStorage();
+        await storage.saveCredentials(
+          serverUrl: 'http://localhost:8088',
+          username: 'alice',
+          password: 'secret',
+        );
+
+        final api = FakeWealthfolioApi(
+          signInSession: const AppSession(
+            serverUrl: 'http://localhost:8088',
+            token: 'fresh-token',
+            username: 'alice',
+          ),
+          accounts: <Account>[_account()],
+          holdingsByAccountId: <String, List<Holding>>{
+            'acc-1': <Holding>[_holding(accountId: 'acc-1')],
+          },
+        );
+        final controller = AppController(storage: storage, api: api);
+
+        await controller.initialize();
+
+        expect(controller.stage, AppStage.authenticated);
+        expect(controller.session?.token, 'fresh-token');
+        expect(api.lastSignInServerUrl, 'http://localhost:8088');
+        expect(api.lastUsername, 'alice');
+        expect(api.lastPassword, 'secret');
+        expect(await storage.loadSession(), isNotNull);
+        expect(controller.accounts, hasLength(1));
+        expect(controller.holdings, hasLength(1));
+        expect(controller.errorMessage, isNull);
+      },
+    );
+
+    test(
+      'initialize leaves unauthenticated when credential restore fails',
+      () async {
+        final storage = MemorySessionStorage();
+        await storage.saveCredentials(
+          serverUrl: 'http://localhost:8088',
+          username: 'alice',
+          password: 'stale',
+        );
+
+        final api = FakeWealthfolioApi()
+          ..signInError = const WealthfolioException('401 unauthorized');
+        final controller = AppController(storage: storage, api: api);
+
+        await controller.initialize();
+
+        expect(controller.stage, AppStage.unauthenticated);
+        expect(controller.session, isNull);
+        expect(controller.errorMessage, isNull);
+      },
+    );
+
+    test('loadSavedCredentials exposes stored credentials', () async {
+      final storage = MemorySessionStorage();
+      await storage.saveCredentials(
+        serverUrl: 'http://localhost:8088',
+        username: 'alice',
+        password: 'secret',
+      );
+      final controller = AppController(
+        storage: storage,
+        api: FakeWealthfolioApi(),
+      );
+
+      final credentials = await controller.loadSavedCredentials();
+
+      expect(credentials, isNotNull);
+      expect(credentials?.serverUrl, 'http://localhost:8088');
+      expect(credentials?.username, 'alice');
+    });
+
     test('initialize clears expired session on auth failure', () async {
       final storage = MemorySessionStorage();
       await storage.saveSession(

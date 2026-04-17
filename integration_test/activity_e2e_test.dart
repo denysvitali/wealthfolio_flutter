@@ -41,17 +41,22 @@ void main() {
       // Clean up test account if created
       if (testAccountId != null && token != null) {
         try {
-          await dio.delete(
+          await dio.delete<dynamic>(
             '/accounts/${Uri.encodeComponent(testAccountId!)}',
-            options: Options(headers: {'Cookie': 'wf_session=$token'}),
+            options: Options(
+              headers: <String, String>{'Cookie': 'wf_session=$token'},
+            ),
           );
         } catch (_) {}
       }
       dio.close();
     });
 
-    Future<void> _authenticate() async {
-      final loginResponse = await dio.post('/auth/login', data: {'password': password});
+    Future<void> authenticate() async {
+      final loginResponse = await dio.post<dynamic>(
+        '/auth/login',
+        data: <String, String>{'password': password},
+      );
       _checkStatus(loginResponse, 'login');
 
       final cookies = loginResponse.headers['set-cookie'];
@@ -69,10 +74,10 @@ void main() {
       }
     }
 
-    Future<String> _createTestAccount() async {
-      final createResponse = await dio.post(
+    Future<String> createTestAccount() async {
+      final createResponse = await dio.post<dynamic>(
         '/accounts',
-        data: {
+        data: <String, dynamic>{
           'name': 'E2E Test Account',
           'accountType': 'BROKERAGE',
           'currency': 'USD',
@@ -80,7 +85,9 @@ void main() {
           'isActive': true,
           'trackingMode': 'Holdings',
         },
-        options: Options(headers: {'Cookie': 'wf_session=$token'}),
+        options: Options(
+          headers: <String, String>{'Cookie': 'wf_session=$token'},
+        ),
       );
       _checkStatus(createResponse, 'create account');
       final accountId = createResponse.data['id']?.toString();
@@ -91,8 +98,8 @@ void main() {
     }
 
     test('creates a BUY activity with symbol object containing quoteCcy', () async {
-      await _authenticate();
-      testAccountId = await _createTestAccount();
+      await authenticate();
+      testAccountId = await createTestAccount();
 
       // The contract: symbol must be an object { symbol: "...", quoteCcy: "..." }
       // Sending just a string will fail with "Quote currency is required"
@@ -111,10 +118,12 @@ void main() {
         },
       };
 
-      final createResponse = await dio.post(
+      final createResponse = await dio.post<dynamic>(
         '/activities',
         data: activityData,
-        options: Options(headers: {'Cookie': 'wf_session=$token'}),
+        options: Options(
+          headers: <String, String>{'Cookie': 'wf_session=$token'},
+        ),
       );
 
       _checkStatus(createResponse, 'create BUY activity');
@@ -128,8 +137,8 @@ void main() {
     });
 
     test('creates a DIVIDEND activity with symbol object containing quoteCcy', () async {
-      await _authenticate();
-      testAccountId = await _createTestAccount();
+      await authenticate();
+      testAccountId = await createTestAccount();
 
       final activityData = <String, dynamic>{
         'accountId': testAccountId,
@@ -146,10 +155,12 @@ void main() {
         },
       };
 
-      final createResponse = await dio.post(
+      final createResponse = await dio.post<dynamic>(
         '/activities',
         data: activityData,
-        options: Options(headers: {'Cookie': 'wf_session=$token'}),
+        options: Options(
+          headers: <String, String>{'Cookie': 'wf_session=$token'},
+        ),
       );
 
       _checkStatus(createResponse, 'create DIVIDEND activity');
@@ -158,8 +169,8 @@ void main() {
     });
 
     test('creates a DEPOSIT activity (no symbol required)', () async {
-      await _authenticate();
-      testAccountId = await _createTestAccount();
+      await authenticate();
+      testAccountId = await createTestAccount();
 
       final activityData = <String, dynamic>{
         'accountId': testAccountId,
@@ -173,10 +184,12 @@ void main() {
         'isDraft': false,
       };
 
-      final createResponse = await dio.post(
+      final createResponse = await dio.post<dynamic>(
         '/activities',
         data: activityData,
-        options: Options(headers: {'Cookie': 'wf_session=$token'}),
+        options: Options(
+          headers: <String, String>{'Cookie': 'wf_session=$token'},
+        ),
       );
 
       _checkStatus(createResponse, 'create DEPOSIT activity');
@@ -185,8 +198,8 @@ void main() {
     });
 
     test('rejects a BUY activity when quoteCcy is missing', () async {
-      await _authenticate();
-      testAccountId = await _createTestAccount();
+      await authenticate();
+      testAccountId = await createTestAccount();
 
       // Intentionally malformed: symbol as plain string instead of object
       final activityData = <String, dynamic>{
@@ -202,10 +215,12 @@ void main() {
       };
 
       try {
-        await dio.post(
+        await dio.post<dynamic>(
           '/activities',
           data: activityData,
-          options: Options(headers: {'Cookie': 'wf_session=$token'}),
+          options: Options(
+            headers: <String, String>{'Cookie': 'wf_session=$token'},
+          ),
         );
         fail('Expected request to fail with missing quoteCcy error');
       } on DioException catch (e) {
@@ -216,17 +231,19 @@ void main() {
     });
 
     test('searches symbols via market-data/search endpoint', () async {
-      await _authenticate();
+      await authenticate();
 
-      final response = await dio.get(
+      final response = await dio.get<dynamic>(
         '/market-data/search',
-        queryParameters: {'query': 'AAPL'},
-        options: Options(headers: {'Cookie': 'wf_session=$token'}),
+        queryParameters: <String, String>{'query': 'AAPL'},
+        options: Options(
+          headers: <String, String>{'Cookie': 'wf_session=$token'},
+        ),
       );
 
       _checkStatus(response, 'search symbols');
-      expect(response.data, isA<List>());
-      final results = response.data as List;
+      expect(response.data, isA<List<dynamic>>());
+      final results = response.data as List<dynamic>;
       expect(results, isNotEmpty);
       // Each result should have symbol and quote currency info
       final first = results.first as Map<String, dynamic>;

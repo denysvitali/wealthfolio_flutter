@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:wealthfolio_flutter/core/services/app_controller.dart';
 import 'package:wealthfolio_flutter/ui/app_colors.dart';
@@ -28,11 +30,34 @@ class _ConnectScreenState extends State<ConnectScreen> {
   @override
   void initState() {
     super.initState();
-    // Pre-fill the server URL from the last session if available.
+    // Pre-fill the server URL (and username if available) from whichever
+    // source is populated: the active session, previously-saved credentials,
+    // or the last-used server URL.
     final lastUrl = widget.controller.session?.serverUrl;
     if (lastUrl != null && lastUrl.isNotEmpty) {
       _serverUrlController.text = lastUrl;
     }
+    unawaited(_prefillFromStorage());
+  }
+
+  Future<void> _prefillFromStorage() async {
+    final credentials = await widget.controller.loadSavedCredentials();
+    if (!mounted) return;
+    if (credentials != null) {
+      setState(() {
+        if (_serverUrlController.text.isEmpty) {
+          _serverUrlController.text = credentials.serverUrl;
+        }
+        if (_usernameController.text.isEmpty) {
+          _usernameController.text = credentials.username;
+        }
+      });
+      return;
+    }
+    if (_serverUrlController.text.isNotEmpty) return;
+    final lastUrl = await widget.controller.loadLastServerUrl();
+    if (!mounted || lastUrl == null || lastUrl.isEmpty) return;
+    setState(() => _serverUrlController.text = lastUrl);
   }
 
   @override

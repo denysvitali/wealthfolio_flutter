@@ -77,49 +77,45 @@ class AppController extends ChangeNotifier {
 
   Future<void> _initializeImpl() async {
     final storedSession = await _storage.loadSession();
-    if (storedSession == null) {
-      _stage = AppStage.unauthenticated;
-      notifyListeners();
-      return;
-    }
-
     var activeSession = storedSession;
-    _session = activeSession;
-    Sentry.configureScope((scope) {
-      scope.setUser(
-        SentryUser(
-          username: activeSession.username,
-          data: <String, dynamic>{'server_url': activeSession.serverUrl},
-        ),
-      );
-    });
-    _stage = AppStage.authenticated;
-    _loadingAccounts = true;
-    _loadingHoldings = true;
-    notifyListeners();
 
-    try {
-      // Validate the restored session.
-      await _api.getAuthStatus(activeSession);
-    } on WealthfolioException catch (e) {
-      if (_isAuthError(e)) {
-        final restoredSession = await _restoreExpiredSession();
-        if (restoredSession == null) {
-          _clearSession();
-          return;
+    if (activeSession != null) {
+      _session = activeSession;
+      _setSentryUser(activeSession);
+      _stage = AppStage.authenticated;
+      _loadingAccounts = true;
+      _loadingHoldings = true;
+      notifyListeners();
+
+      try {
+        await _api.getAuthStatus(activeSession);
+      } on WealthfolioException catch (e) {
+        if (_isAuthError(e)) {
+          activeSession = await _restoreExpiredSession();
+          if (activeSession == null) {
+            await _clearSession();
+            return;
+          }
+          _session = activeSession;
+          _setSentryUser(activeSession);
         }
-
-        activeSession = restoredSession;
-        _session = activeSession;
-        Sentry.configureScope((scope) {
-          scope.setUser(
-            SentryUser(
-              username: activeSession.username,
-              data: <String, dynamic>{'server_url': activeSession.serverUrl},
-            ),
-          );
-        });
       }
+    } else {
+      // No stored session — try stored credentials (first launch after the
+      // token couldn't be persisted, e.g. on Flutter web where Set-Cookie is
+      // stripped, or after a manual storage wipe that spared the credentials).
+      activeSession = await _restoreExpiredSession();
+      if (activeSession == null) {
+        _stage = AppStage.unauthenticated;
+        notifyListeners();
+        return;
+      }
+      _session = activeSession;
+      _setSentryUser(activeSession);
+      _stage = AppStage.authenticated;
+      _loadingAccounts = true;
+      _loadingHoldings = true;
+      notifyListeners();
     }
 
     // Load accounts first — holdings require accountId.
@@ -127,7 +123,7 @@ class AppController extends ChangeNotifier {
       await _fetchAccounts(activeSession);
     } on WealthfolioException catch (e) {
       if (_isAuthError(e)) {
-        _clearSession();
+        await _clearSession();
         return;
       }
       _loadingHoldings = false;
@@ -142,6 +138,17 @@ class AppController extends ChangeNotifier {
     ]);
   }
 
+  void _setSentryUser(AppSession session) {
+    Sentry.configureScope((scope) {
+      scope.setUser(
+        SentryUser(
+          username: session.username,
+          data: <String, dynamic>{'server_url': session.serverUrl},
+        ),
+      );
+    });
+  }
+
   /// Returns true if the exception is an authentication/authorization failure
   /// that warrants clearing the stored session.
   bool _isAuthError(WealthfolioException e) {
@@ -152,7 +159,7 @@ class AppController extends ChangeNotifier {
         msg.contains('authentication');
   }
 
-  void _clearSession() {
+  Future<void> _clearSession() async {
     _stage = AppStage.unauthenticated;
     _session = null;
     _accounts = const <Account>[];
@@ -160,7 +167,7 @@ class AppController extends ChangeNotifier {
     _loadingAccounts = false;
     _loadingHoldings = false;
     _errorMessage = 'Saved session expired. Sign in again.';
-    _storage.clearSession();
+    await _storage.clearSession();
     notifyListeners();
   }
 
@@ -170,14 +177,27 @@ class AppController extends ChangeNotifier {
       return null;
     }
 
-    final refreshedSession = await _api.signIn(
-      serverUrl: credentials.serverUrl,
-      username: credentials.username,
-      password: credentials.password,
-    );
-    await _storage.saveSession(refreshedSession);
-    return refreshedSession;
+    try {
+      final refreshedSession = await _api.signIn(
+        serverUrl: credentials.serverUrl,
+        username: credentials.username,
+        password: credentials.password,
+      );
+      await _storage.saveSession(refreshedSession);
+      return refreshedSession;
+    } on WealthfolioException {
+      // Stored credentials no longer valid — caller will surface unauthenticated.
+      return null;
+    }
   }
+
+  /// Loads the credentials previously persisted on sign-in, used by the
+  /// connect screen to pre-fill the server URL and username fields.
+  Future<StoredCredentials?> loadSavedCredentials() =>
+      _storage.loadCredentials();
+
+  /// Loads the last server URL the user successfully signed in to.
+  Future<String?> loadLastServerUrl() => _storage.loadLastServerUrl();
 
   // --- Auth -----------------------------------------------------------------
 
@@ -203,14 +223,7 @@ class AppController extends ChangeNotifier {
       );
 
       _session = nextSession;
-      Sentry.configureScope((scope) {
-        scope.setUser(
-          SentryUser(
-            username: nextSession.username,
-            data: <String, dynamic>{'server_url': nextSession.serverUrl},
-          ),
-        );
-      });
+      _setSentryUser(nextSession);
       _stage = AppStage.authenticated;
       await _storage.saveCredentials(
         serverUrl: normalizedUrl,

@@ -1145,7 +1145,7 @@ Map<String, dynamic> normalizeActivityPayloadForRest(
     'accountId': (data['accountId'] ?? data['account_id'] ?? '')
         .toString()
         .trim(),
-    if (normalizedSymbol != null) 'symbol': normalizedSymbol,
+    'symbol': ?normalizedSymbol,
     'activityType': activityType,
     'activityDate': (data['activityDate'] ?? data['activity_date'] ?? '')
         .toString()

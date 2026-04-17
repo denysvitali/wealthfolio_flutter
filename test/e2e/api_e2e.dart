@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 import 'dart:io';
 import 'package:dio/dio.dart';
 
@@ -24,7 +26,10 @@ void main() async {
   try {
     // 1. Sign in
     print('\n[1/8] Signing in...');
-    final loginResponse = await dio.post('/auth/login', data: {'password': password});
+    final loginResponse = await dio.post<dynamic>(
+      '/auth/login',
+      data: <String, String>{'password': password},
+    );
     _checkStatus(loginResponse, 'login');
 
     // Extract token from Set-Cookie header
@@ -45,28 +50,28 @@ void main() async {
 
     // 2. Get auth status
     print('\n[2/8] Checking auth status...');
-    final authResponse = await dio.get(
+    final authResponse = await dio.get<dynamic>(
       '/auth/status',
-      options: Options(headers: {'Cookie': 'wf_session=$token'}),
+      options: Options(headers: <String, String>{'Cookie': 'wf_session=$token'}),
     );
     _checkStatus(authResponse, 'auth status');
     print('  Auth status OK');
 
     // 3. Fetch accounts (should be empty initially)
     print('\n[3/8] Fetching accounts...');
-    final accountsResponse = await dio.get(
+    final accountsResponse = await dio.get<dynamic>(
       '/accounts',
-      options: Options(headers: {'Cookie': 'wf_session=$token'}),
+      options: Options(headers: <String, String>{'Cookie': 'wf_session=$token'}),
     );
     _checkStatus(accountsResponse, 'fetch accounts');
-    final accounts = accountsResponse.data as List;
+    final accounts = accountsResponse.data as List<dynamic>;
     print('  Found ${accounts.length} accounts');
 
     // 4. Create an account
     print('\n[4/8] Creating account...');
-    final createAccountResponse = await dio.post(
+    final createAccountResponse = await dio.post<dynamic>(
       '/accounts',
-      data: {
+      data: <String, dynamic>{
         'name': 'Test Brokerage',
         'accountType': 'BROKERAGE',
         'currency': 'USD',
@@ -74,7 +79,7 @@ void main() async {
         'isActive': true,
         'trackingMode': 'Holdings',
       },
-      options: Options(headers: {'Cookie': 'wf_session=$token'}),
+      options: Options(headers: <String, String>{'Cookie': 'wf_session=$token'}),
     );
     _checkStatus(createAccountResponse, 'create account');
     final createdAccount = createAccountResponse.data as Map<String, dynamic>;
@@ -86,42 +91,42 @@ void main() async {
 
     // 5. Fetch holdings (should be empty for new account)
     print('\n[5/8] Fetching holdings for account $accountId...');
-    final holdingsResponse = await dio.get(
+    final holdingsResponse = await dio.get<dynamic>(
       '/holdings',
-      queryParameters: {'accountId': accountId},
-      options: Options(headers: {'Cookie': 'wf_session=$token'}),
+      queryParameters: <String, String>{'accountId': accountId},
+      options: Options(headers: <String, String>{'Cookie': 'wf_session=$token'}),
     );
     _checkStatus(holdingsResponse, 'fetch holdings');
-    final holdings = holdingsResponse.data as List;
+    final holdings = holdingsResponse.data as List<dynamic>;
     print('  Found ${holdings.length} holdings');
 
     // 6. Fetch settings
     print('\n[6/8] Fetching settings...');
-    final settingsResponse = await dio.get(
+    final settingsResponse = await dio.get<dynamic>(
       '/settings',
-      options: Options(headers: {'Cookie': 'wf_session=$token'}),
+      options: Options(headers: <String, String>{'Cookie': 'wf_session=$token'}),
     );
     _checkStatus(settingsResponse, 'fetch settings');
     print('  Settings OK: baseCurrency=${settingsResponse.data['baseCurrency']}');
 
     // 7. Search activities (should be empty)
     print('\n[7/8] Searching activities...');
-    final activitiesResponse = await dio.post(
+    final activitiesResponse = await dio.post<dynamic>(
       '/activities/search',
-      data: {
+      data: <String, dynamic>{
         'page': 1,
         'pageSize': 10,
       },
-      options: Options(headers: {'Cookie': 'wf_session=$token'}),
+      options: Options(headers: <String, String>{'Cookie': 'wf_session=$token'}),
     );
     _checkStatus(activitiesResponse, 'search activities');
     print('  Activities search OK');
 
     // 8. Delete the test account
     print('\n[8/8] Deleting test account...');
-    final deleteResponse = await dio.delete(
+    final deleteResponse = await dio.delete<dynamic>(
       '/accounts/${Uri.encodeComponent(accountId)}',
-      options: Options(headers: {'Cookie': 'wf_session=$token'}),
+      options: Options(headers: <String, String>{'Cookie': 'wf_session=$token'}),
     );
     _checkStatus(deleteResponse, 'delete account');
     print('  Account deleted');
