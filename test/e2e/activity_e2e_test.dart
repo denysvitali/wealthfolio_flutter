@@ -29,6 +29,10 @@ void main() {
     String? testAccountId;
 
     setUpAll(() async {
+      // flutter_test's TestWidgetsFlutterBinding installs HttpOverrides
+      // that return 400 for every request, preventing real network access.
+      // Clearing the override lets Dio reach the actual server.
+      HttpOverrides.global = null;
       dio = Dio(BaseOptions(
         baseUrl: '$url/api/v1',
         connectTimeout: const Duration(seconds: 15),

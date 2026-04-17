@@ -234,6 +234,8 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-disabled: true
 
       - name: Get dependencies
         run: devenv shell -- flutter pub get
@@ -305,6 +307,8 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-disabled: true
 
       - name: Get dependencies
         run: devenv shell -- flutter pub get
