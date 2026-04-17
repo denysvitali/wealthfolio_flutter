@@ -2,11 +2,16 @@ import 'package:wealthfolio_flutter/core/api/wealthfolio_api.dart';
 import 'package:wealthfolio_flutter/core/models/account.dart';
 import 'package:wealthfolio_flutter/core/models/activity.dart';
 import 'package:wealthfolio_flutter/core/models/asset.dart';
+import 'package:wealthfolio_flutter/core/models/contribution_limit.dart';
 import 'package:wealthfolio_flutter/core/models/exchange_rate.dart';
 import 'package:wealthfolio_flutter/core/models/goal.dart';
+import 'package:wealthfolio_flutter/core/models/health_status.dart';
 import 'package:wealthfolio_flutter/core/models/holding.dart';
+import 'package:wealthfolio_flutter/core/models/quote.dart';
 import 'package:wealthfolio_flutter/core/models/session.dart';
 import 'package:wealthfolio_flutter/core/models/settings.dart';
+import 'package:wealthfolio_flutter/core/models/taxonomy.dart';
+import 'package:wealthfolio_flutter/core/models/valuation.dart';
 
 class FakeWealthfolioApi implements WealthfolioApi {
   FakeWealthfolioApi({
@@ -414,4 +419,214 @@ class FakeWealthfolioApi implements WealthfolioApi {
     required String taxonomyId,
     required String categoryId,
   }) => throw UnimplementedError();
+
+  // ---- Auth: logout / me ----
+
+  @override
+  Future<Map<String, dynamic>> getAuthMe(AppSession session) async =>
+      const <String, dynamic>{'username': 'admin', 'authenticated': true};
+
+  @override
+  Future<void> signOut(AppSession session) async {}
+
+  // ---- Valuations ----
+
+  @override
+  Future<List<DailyAccountValuation>> fetchValuationHistory(
+    AppSession session, {
+    required String accountId,
+    String? startDate,
+    String? endDate,
+  }) async => const <DailyAccountValuation>[];
+
+  @override
+  Future<List<DailyAccountValuation>> fetchLatestValuations(
+    AppSession session, {
+    List<String>? accountIds,
+  }) async => const <DailyAccountValuation>[];
+
+  // ---- Market data (quotes / providers / exchanges) ----
+
+  @override
+  Future<List<Quote>> fetchQuoteHistory(
+    AppSession session,
+    String symbol,
+  ) async => const <Quote>[];
+
+  @override
+  Future<Map<String, dynamic>> fetchLatestQuotes(
+    AppSession session,
+    List<String> symbols,
+  ) async => const <String, dynamic>{};
+
+  @override
+  Future<void> updateQuote(
+    AppSession session,
+    String symbol,
+    Quote quote,
+  ) => throw UnimplementedError();
+
+  @override
+  Future<void> deleteQuote(AppSession session, String quoteId) =>
+      throw UnimplementedError();
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchMarketDataProviders(
+    AppSession session,
+  ) async => const <Map<String, dynamic>>[];
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchMarketDataProviderSettings(
+    AppSession session,
+  ) async => const <Map<String, dynamic>>[];
+
+  @override
+  Future<void> updateMarketDataProviderSettings(
+    AppSession session, {
+    required String providerId,
+    required int priority,
+    required bool enabled,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchExchanges(AppSession session) async =>
+      const <Map<String, dynamic>>[];
+
+  // ---- Assets CRUD ----
+
+  @override
+  Future<Asset> createAsset(AppSession session, Map<String, dynamic> data) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Asset> updateAssetProfile(
+    AppSession session,
+    String id,
+    Map<String, dynamic> data,
+  ) => throw UnimplementedError();
+
+  @override
+  Future<Asset> updateAssetQuoteMode(
+    AppSession session,
+    String id,
+    String quoteMode,
+  ) => throw UnimplementedError();
+
+  @override
+  Future<void> deleteAsset(AppSession session, String id) =>
+      throw UnimplementedError();
+
+  // ---- Contribution limits ----
+
+  @override
+  Future<List<ContributionLimit>> fetchContributionLimits(
+    AppSession session,
+  ) async => const <ContributionLimit>[];
+
+  @override
+  Future<ContributionLimit> createContributionLimit(
+    AppSession session,
+    Map<String, dynamic> data,
+  ) => throw UnimplementedError();
+
+  @override
+  Future<ContributionLimit> updateContributionLimit(
+    AppSession session,
+    String id,
+    Map<String, dynamic> data,
+  ) => throw UnimplementedError();
+
+  @override
+  Future<void> deleteContributionLimit(AppSession session, String id) =>
+      throw UnimplementedError();
+
+  @override
+  Future<DepositsCalculation> fetchContributionLimitDeposits(
+    AppSession session,
+    String id,
+  ) => throw UnimplementedError();
+
+  // ---- Taxonomies ----
+
+  @override
+  Future<List<Taxonomy>> fetchTaxonomies(AppSession session) async =>
+      const <Taxonomy>[];
+
+  @override
+  Future<TaxonomyWithCategories?> fetchTaxonomy(
+    AppSession session,
+    String id,
+  ) async => null;
+
+  @override
+  Future<Taxonomy> createTaxonomy(
+    AppSession session,
+    Map<String, dynamic> data,
+  ) => throw UnimplementedError();
+
+  @override
+  Future<Taxonomy> updateTaxonomy(
+    AppSession session,
+    Map<String, dynamic> data,
+  ) => throw UnimplementedError();
+
+  @override
+  Future<void> deleteTaxonomy(AppSession session, String id) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Category> createCategory(
+    AppSession session,
+    Map<String, dynamic> data,
+  ) => throw UnimplementedError();
+
+  @override
+  Future<Category> updateCategory(
+    AppSession session,
+    Map<String, dynamic> data,
+  ) => throw UnimplementedError();
+
+  @override
+  Future<void> deleteCategory(
+    AppSession session, {
+    required String taxonomyId,
+    required String categoryId,
+  }) => throw UnimplementedError();
+
+  // ---- Health ----
+
+  @override
+  Future<HealthStatus> fetchHealthStatus(
+    AppSession session, {
+    String? timezone,
+  }) async => const HealthStatus(
+        overallSeverity: 'INFO',
+        issueCounts: <String, int>{},
+        issues: <HealthIssue>[],
+        checkedAt: '',
+        isStale: false,
+      );
+
+  @override
+  Future<HealthStatus> runHealthChecks(
+    AppSession session, {
+    String? timezone,
+  }) async => const HealthStatus(
+        overallSeverity: 'INFO',
+        issueCounts: <String, int>{},
+        issues: <HealthIssue>[],
+        checkedAt: '',
+        isStale: false,
+      );
+
+  @override
+  Future<void> dismissHealthIssue(
+    AppSession session, {
+    required String issueId,
+    required String dataHash,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<void> restoreHealthIssue(AppSession session, String issueId) =>
+      throw UnimplementedError();
 }

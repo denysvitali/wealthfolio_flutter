@@ -5,11 +5,16 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:wealthfolio_flutter/core/models/account.dart';
 import 'package:wealthfolio_flutter/core/models/activity.dart';
 import 'package:wealthfolio_flutter/core/models/asset.dart';
+import 'package:wealthfolio_flutter/core/models/contribution_limit.dart';
 import 'package:wealthfolio_flutter/core/models/exchange_rate.dart';
 import 'package:wealthfolio_flutter/core/models/goal.dart';
+import 'package:wealthfolio_flutter/core/models/health_status.dart';
 import 'package:wealthfolio_flutter/core/models/holding.dart';
+import 'package:wealthfolio_flutter/core/models/quote.dart';
 import 'package:wealthfolio_flutter/core/models/session.dart';
 import 'package:wealthfolio_flutter/core/models/settings.dart';
+import 'package:wealthfolio_flutter/core/models/taxonomy.dart';
+import 'package:wealthfolio_flutter/core/models/valuation.dart';
 import 'package:wealthfolio_flutter/core/utils/json_parsing.dart';
 
 import 'native_adapter_helper.dart'
@@ -28,6 +33,8 @@ abstract class WealthfolioApi {
     required String password,
   });
   Future<Map<String, dynamic>> getAuthStatus(AppSession session);
+  Future<Map<String, dynamic>> getAuthMe(AppSession session);
+  Future<void> signOut(AppSession session);
 
   // Accounts
   Future<List<Account>> fetchAccounts(
@@ -151,10 +158,54 @@ abstract class WealthfolioApi {
     String query,
   );
   Future<void> syncMarketData(AppSession session);
+  Future<List<Quote>> fetchQuoteHistory(AppSession session, String symbol);
+  Future<Map<String, dynamic>> fetchLatestQuotes(
+    AppSession session,
+    List<String> symbols,
+  );
+  Future<void> updateQuote(AppSession session, String symbol, Quote quote);
+  Future<void> deleteQuote(AppSession session, String quoteId);
+  Future<List<Map<String, dynamic>>> fetchMarketDataProviders(
+    AppSession session,
+  );
+  Future<List<Map<String, dynamic>>> fetchMarketDataProviderSettings(
+    AppSession session,
+  );
+  Future<void> updateMarketDataProviderSettings(
+    AppSession session, {
+    required String providerId,
+    required int priority,
+    required bool enabled,
+  });
+  Future<List<Map<String, dynamic>>> fetchExchanges(AppSession session);
+
+  // Valuations
+  Future<List<DailyAccountValuation>> fetchValuationHistory(
+    AppSession session, {
+    required String accountId,
+    String? startDate,
+    String? endDate,
+  });
+  Future<List<DailyAccountValuation>> fetchLatestValuations(
+    AppSession session, {
+    List<String>? accountIds,
+  });
 
   // Assets
   Future<List<Asset>> fetchAssets(AppSession session);
   Future<Asset> fetchAssetProfile(AppSession session, String assetId);
+  Future<Asset> createAsset(AppSession session, Map<String, dynamic> data);
+  Future<Asset> updateAssetProfile(
+    AppSession session,
+    String id,
+    Map<String, dynamic> data,
+  );
+  Future<Asset> updateAssetQuoteMode(
+    AppSession session,
+    String id,
+    String quoteMode,
+  );
+  Future<void> deleteAsset(AppSession session, String id);
 
   // Allocations
   Future<Map<String, dynamic>> fetchAllocations(
@@ -167,6 +218,62 @@ abstract class WealthfolioApi {
     required String taxonomyId,
     required String categoryId,
   });
+
+  // Contribution Limits
+  Future<List<ContributionLimit>> fetchContributionLimits(AppSession session);
+  Future<ContributionLimit> createContributionLimit(
+    AppSession session,
+    Map<String, dynamic> data,
+  );
+  Future<ContributionLimit> updateContributionLimit(
+    AppSession session,
+    String id,
+    Map<String, dynamic> data,
+  );
+  Future<void> deleteContributionLimit(AppSession session, String id);
+  Future<DepositsCalculation> fetchContributionLimitDeposits(
+    AppSession session,
+    String id,
+  );
+
+  // Taxonomies
+  Future<List<Taxonomy>> fetchTaxonomies(AppSession session);
+  Future<TaxonomyWithCategories?> fetchTaxonomy(
+    AppSession session,
+    String id,
+  );
+  Future<Taxonomy> createTaxonomy(
+    AppSession session,
+    Map<String, dynamic> data,
+  );
+  Future<Taxonomy> updateTaxonomy(
+    AppSession session,
+    Map<String, dynamic> data,
+  );
+  Future<void> deleteTaxonomy(AppSession session, String id);
+  Future<Category> createCategory(
+    AppSession session,
+    Map<String, dynamic> data,
+  );
+  Future<Category> updateCategory(
+    AppSession session,
+    Map<String, dynamic> data,
+  );
+  Future<void> deleteCategory(
+    AppSession session, {
+    required String taxonomyId,
+    required String categoryId,
+  });
+
+  // Health
+  Future<HealthStatus> fetchHealthStatus(AppSession session, {String? timezone});
+  Future<HealthStatus> runHealthChecks(AppSession session, {String? timezone});
+  Future<void> dismissHealthIssue(
+    AppSession session, {
+    required String issueId,
+    required String dataHash,
+  });
+  Future<void> restoreHealthIssue(AppSession session, String issueId);
 }
 
 // ---------------------------------------------------------------------------
@@ -257,6 +364,36 @@ class NetworkWealthfolioApi implements WealthfolioApi {
       final response = await dio.get<dynamic>('/auth/status');
       _throwIfRequestFailed(response);
       return parseMap(response.data);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> getAuthMe(AppSession session) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.get<dynamic>('/auth/me');
+      _throwIfRequestFailed(response);
+      return parseMap(response.data);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<void> signOut(AppSession session) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.post<dynamic>(
+        '/auth/logout',
+        data: const <String, dynamic>{},
+      );
+      _throwIfRequestFailed(response);
     } on DioException catch (error) {
       throw WealthfolioException(_formatDioError(error));
     } finally {
@@ -1006,6 +1143,632 @@ class NetworkWealthfolioApi implements WealthfolioApi {
       );
       _throwIfRequestFailed(response);
       return parseMap(response.data);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Valuations
+  // -------------------------------------------------------------------------
+
+  @override
+  Future<List<DailyAccountValuation>> fetchValuationHistory(
+    AppSession session, {
+    required String accountId,
+    String? startDate,
+    String? endDate,
+  }) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.get<dynamic>(
+        '/valuations/history',
+        queryParameters: <String, dynamic>{
+          'accountId': accountId,
+          'startDate': ?startDate,
+          'endDate': ?endDate,
+        },
+      );
+      _throwIfRequestFailed(response);
+      return parseList(response.data)
+          .map(DailyAccountValuation.fromJson)
+          .toList(growable: false);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<List<DailyAccountValuation>> fetchLatestValuations(
+    AppSession session, {
+    List<String>? accountIds,
+  }) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      // The server accepts repeated `accountIds=x` query params.
+      final response = await dio.get<dynamic>(
+        '/valuations/latest',
+        queryParameters: accountIds == null || accountIds.isEmpty
+            ? null
+            : <String, dynamic>{'accountIds': accountIds},
+      );
+      _throwIfRequestFailed(response);
+      return parseList(response.data)
+          .map(DailyAccountValuation.fromJson)
+          .toList(growable: false);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Market Data (quotes + providers)
+  // -------------------------------------------------------------------------
+
+  @override
+  Future<List<Quote>> fetchQuoteHistory(
+    AppSession session,
+    String symbol,
+  ) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.get<dynamic>(
+        '/market-data/quotes/history',
+        queryParameters: <String, dynamic>{'symbol': symbol},
+      );
+      _throwIfRequestFailed(response);
+      return parseList(response.data)
+          .map(Quote.fromJson)
+          .toList(growable: false);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> fetchLatestQuotes(
+    AppSession session,
+    List<String> symbols,
+  ) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.post<dynamic>(
+        '/market-data/quotes/latest',
+        data: <String, dynamic>{'symbols': symbols},
+      );
+      _throwIfRequestFailed(response);
+      return parseMap(response.data);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<void> updateQuote(
+    AppSession session,
+    String symbol,
+    Quote quote,
+  ) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.put<dynamic>(
+        '/market-data/quotes/${Uri.encodeComponent(symbol)}',
+        data: quote.toJson(),
+      );
+      _throwIfRequestFailed(response);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<void> deleteQuote(AppSession session, String quoteId) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.delete<dynamic>(
+        '/market-data/quotes/id/${Uri.encodeComponent(quoteId)}',
+      );
+      _throwIfRequestFailed(response);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchMarketDataProviders(
+    AppSession session,
+  ) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.get<dynamic>('/providers');
+      _throwIfRequestFailed(response);
+      return parseList(
+        response.data,
+      ).map((dynamic item) => parseMap(item)).toList(growable: false);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchMarketDataProviderSettings(
+    AppSession session,
+  ) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.get<dynamic>('/providers/settings');
+      _throwIfRequestFailed(response);
+      return parseList(
+        response.data,
+      ).map((dynamic item) => parseMap(item)).toList(growable: false);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<void> updateMarketDataProviderSettings(
+    AppSession session, {
+    required String providerId,
+    required int priority,
+    required bool enabled,
+  }) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.put<dynamic>(
+        '/providers/settings',
+        data: <String, dynamic>{
+          'providerId': providerId,
+          'priority': priority,
+          'enabled': enabled,
+        },
+      );
+      _throwIfRequestFailed(response);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchExchanges(AppSession session) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.get<dynamic>('/exchanges');
+      _throwIfRequestFailed(response);
+      return parseList(
+        response.data,
+      ).map((dynamic item) => parseMap(item)).toList(growable: false);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Assets CRUD
+  // -------------------------------------------------------------------------
+
+  @override
+  Future<Asset> createAsset(
+    AppSession session,
+    Map<String, dynamic> data,
+  ) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.post<dynamic>('/assets', data: data);
+      _throwIfRequestFailed(response);
+      return Asset.fromJson(response.data);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<Asset> updateAssetProfile(
+    AppSession session,
+    String id,
+    Map<String, dynamic> data,
+  ) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.put<dynamic>(
+        '/assets/profile/${Uri.encodeComponent(id)}',
+        data: data,
+      );
+      _throwIfRequestFailed(response);
+      return Asset.fromJson(response.data);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<Asset> updateAssetQuoteMode(
+    AppSession session,
+    String id,
+    String quoteMode,
+  ) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.put<dynamic>(
+        '/assets/pricing-mode/${Uri.encodeComponent(id)}',
+        data: <String, dynamic>{'quoteMode': quoteMode},
+      );
+      _throwIfRequestFailed(response);
+      return Asset.fromJson(response.data);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<void> deleteAsset(AppSession session, String id) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.delete<dynamic>(
+        '/assets/${Uri.encodeComponent(id)}',
+      );
+      _throwIfRequestFailed(response);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Contribution Limits
+  // -------------------------------------------------------------------------
+
+  @override
+  Future<List<ContributionLimit>> fetchContributionLimits(
+    AppSession session,
+  ) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.get<dynamic>('/limits');
+      _throwIfRequestFailed(response);
+      return parseList(response.data)
+          .map(ContributionLimit.fromJson)
+          .toList(growable: false);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<ContributionLimit> createContributionLimit(
+    AppSession session,
+    Map<String, dynamic> data,
+  ) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.post<dynamic>('/limits', data: data);
+      _throwIfRequestFailed(response);
+      return ContributionLimit.fromJson(response.data);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<ContributionLimit> updateContributionLimit(
+    AppSession session,
+    String id,
+    Map<String, dynamic> data,
+  ) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.put<dynamic>(
+        '/limits/${Uri.encodeComponent(id)}',
+        data: data,
+      );
+      _throwIfRequestFailed(response);
+      return ContributionLimit.fromJson(response.data);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<void> deleteContributionLimit(AppSession session, String id) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.delete<dynamic>(
+        '/limits/${Uri.encodeComponent(id)}',
+      );
+      _throwIfRequestFailed(response);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<DepositsCalculation> fetchContributionLimitDeposits(
+    AppSession session,
+    String id,
+  ) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.get<dynamic>(
+        '/limits/${Uri.encodeComponent(id)}/deposits',
+      );
+      _throwIfRequestFailed(response);
+      return DepositsCalculation.fromJson(response.data);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Taxonomies
+  // -------------------------------------------------------------------------
+
+  @override
+  Future<List<Taxonomy>> fetchTaxonomies(AppSession session) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.get<dynamic>('/taxonomies');
+      _throwIfRequestFailed(response);
+      return parseList(response.data)
+          .map(Taxonomy.fromJson)
+          .toList(growable: false);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<TaxonomyWithCategories?> fetchTaxonomy(
+    AppSession session,
+    String id,
+  ) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.get<dynamic>(
+        '/taxonomies/${Uri.encodeComponent(id)}',
+      );
+      if ((response.statusCode ?? 500) == 404) return null;
+      _throwIfRequestFailed(response);
+      if (response.data == null) return null;
+      return TaxonomyWithCategories.fromJson(response.data);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<Taxonomy> createTaxonomy(
+    AppSession session,
+    Map<String, dynamic> data,
+  ) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.post<dynamic>('/taxonomies', data: data);
+      _throwIfRequestFailed(response);
+      return Taxonomy.fromJson(response.data);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<Taxonomy> updateTaxonomy(
+    AppSession session,
+    Map<String, dynamic> data,
+  ) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.put<dynamic>('/taxonomies', data: data);
+      _throwIfRequestFailed(response);
+      return Taxonomy.fromJson(response.data);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<void> deleteTaxonomy(AppSession session, String id) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.delete<dynamic>(
+        '/taxonomies/${Uri.encodeComponent(id)}',
+      );
+      _throwIfRequestFailed(response);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<Category> createCategory(
+    AppSession session,
+    Map<String, dynamic> data,
+  ) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.post<dynamic>(
+        '/taxonomies/categories',
+        data: data,
+      );
+      _throwIfRequestFailed(response);
+      return Category.fromJson(response.data);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<Category> updateCategory(
+    AppSession session,
+    Map<String, dynamic> data,
+  ) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.put<dynamic>(
+        '/taxonomies/categories',
+        data: data,
+      );
+      _throwIfRequestFailed(response);
+      return Category.fromJson(response.data);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<void> deleteCategory(
+    AppSession session, {
+    required String taxonomyId,
+    required String categoryId,
+  }) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.delete<dynamic>(
+        '/taxonomies/${Uri.encodeComponent(taxonomyId)}'
+        '/categories/${Uri.encodeComponent(categoryId)}',
+      );
+      _throwIfRequestFailed(response);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Health
+  // -------------------------------------------------------------------------
+
+  @override
+  Future<HealthStatus> fetchHealthStatus(
+    AppSession session, {
+    String? timezone,
+  }) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    if (timezone != null && timezone.isNotEmpty) {
+      dio.options.headers['X-Client-Timezone'] = timezone;
+    }
+    try {
+      final response = await dio.get<dynamic>('/health/status');
+      _throwIfRequestFailed(response);
+      return HealthStatus.fromJson(response.data);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<HealthStatus> runHealthChecks(
+    AppSession session, {
+    String? timezone,
+  }) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    if (timezone != null && timezone.isNotEmpty) {
+      dio.options.headers['X-Client-Timezone'] = timezone;
+    }
+    try {
+      final response = await dio.post<dynamic>(
+        '/health/check',
+        data: const <String, dynamic>{},
+      );
+      _throwIfRequestFailed(response);
+      return HealthStatus.fromJson(response.data);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<void> dismissHealthIssue(
+    AppSession session, {
+    required String issueId,
+    required String dataHash,
+  }) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.post<dynamic>(
+        '/health/dismiss',
+        data: <String, dynamic>{
+          'issueId': issueId,
+          'dataHash': dataHash,
+        },
+      );
+      _throwIfRequestFailed(response);
+    } on DioException catch (error) {
+      throw WealthfolioException(_formatDioError(error));
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  @override
+  Future<void> restoreHealthIssue(
+    AppSession session,
+    String issueId,
+  ) async {
+    final dio = _createDio(session.serverUrl, token: session.token);
+    try {
+      final response = await dio.post<dynamic>(
+        '/health/restore',
+        data: <String, dynamic>{'issueId': issueId},
+      );
+      _throwIfRequestFailed(response);
     } on DioException catch (error) {
       throw WealthfolioException(_formatDioError(error));
     } finally {

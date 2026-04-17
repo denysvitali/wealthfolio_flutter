@@ -54,20 +54,24 @@ Matching the Wealthfolio React frontend:
 
 ### Step 1.3: Core Layer — API Client
 - [x] `lib/core/api/wealthfolio_api.dart` — Abstract API interface + NetworkWealthfolioApi
-  - [x] Auth: `verifyServer()`, `signIn()`, `getAuthStatus()`
+  - [x] Auth: `verifyServer()`, `signIn()`, `signOut()`, `getAuthStatus()`, `getAuthMe()`
   - [x] Accounts: `fetchAccounts()`, `createAccount()`, `updateAccount()`, `deleteAccount()`
   - [x] Holdings: `fetchHoldings()`, `fetchHolding()`, `fetchHoldingsByAsset()`
   - [x] Activities: `searchActivities()`, `createActivity()`, `updateActivity()`, `deleteActivity()`
-  - [x] Performance: `fetchPerformanceHistory()`, `fetchPerformanceSummary()`, `fetchSimplePerformance()`
+  - [x] Performance: `fetchPerformanceHistory()`, `fetchPerformanceSummary()`, `fetchSimplePerformance()` (all accept optional `trackingMode`/date bounds)
   - [x] Net Worth: `fetchNetWorth()`, `fetchNetWorthHistory()`
+  - [x] Valuations: `fetchValuationHistory()`, `fetchLatestValuations()`
   - [x] Settings: `fetchSettings()`, `updateSettings()`
   - [x] Portfolio: `updatePortfolio()`, `recalculatePortfolio()`
   - [x] Goals: `fetchGoals()`, `createGoal()`, `updateGoal()`, `deleteGoal()`
   - [x] Exchange Rates: `fetchExchangeRates()`, `addExchangeRate()`, `updateExchangeRate()`, `deleteExchangeRate()`
   - [x] Income: `fetchIncomeSummary()`
-  - [x] Market Data: `searchSymbol()`, `syncMarketData()`
-  - [x] Assets: `fetchAssets()`, `fetchAssetProfile()`
+  - [x] Market Data: `searchSymbol()`, `syncMarketData()`, `fetchQuoteHistory()`, `fetchLatestQuotes()`, `updateQuote()`, `deleteQuote()`, `fetchMarketDataProviders()`, `fetchMarketDataProviderSettings()`, `updateMarketDataProviderSettings()`, `fetchExchanges()`
+  - [x] Assets: `fetchAssets()`, `fetchAssetProfile()`, `createAsset()`, `updateAssetProfile()`, `updateAssetQuoteMode()`, `deleteAsset()`
   - [x] Allocations: `fetchAllocations()`, `fetchAllocationHoldings()`
+  - [x] Contribution Limits: `fetchContributionLimits()`, `createContributionLimit()`, `updateContributionLimit()`, `deleteContributionLimit()`, `fetchContributionLimitDeposits()`
+  - [x] Taxonomies: `fetchTaxonomies()`, `fetchTaxonomy()`, `createTaxonomy()`, `updateTaxonomy()`, `deleteTaxonomy()`, `createCategory()`, `updateCategory()`, `deleteCategory()`
+  - [x] Health: `fetchHealthStatus()`, `runHealthChecks()`, `dismissHealthIssue()`, `restoreHealthIssue()`
 
 ### Step 1.4: Core Layer — Services
 - [x] `lib/core/services/app_controller.dart` — Central state (ChangeNotifier)
@@ -179,23 +183,23 @@ Matching the Wealthfolio React frontend:
 
 | Domain | Endpoints | Implemented | Notes |
 |--------|-----------|-------------|-------|
-| Auth | 6 | 6 | verifyServer, signIn, getAuthStatus, getMe, logout |
+| Auth | 6 | 5 | verifyServer, signIn, signOut, getAuthStatus, getAuthMe |
 | Accounts | 4 | 4 | CRUD |
 | Activities | 17 | 4 | Search, CRUD (import later) |
-| Holdings | 13 | 3 | Core holdings (snapshots later) |
+| Holdings + Valuations | 13 | 5 | Core holdings + valuations (history/latest); snapshots later |
 | Portfolio | 3 | 2 | Update, recalculate (SSE later) |
-| Performance | 4 | 3 | Simple, history, summary |
+| Performance | 4 | 3 | Simple, history, summary (trackingMode + date bounds supported) |
 | Income | 1 | 1 | Summary |
 | Net Worth | 2 | 2 | Current + history |
 | Settings | 4 | 2 | Get + update |
 | Goals | 6 | 4 | CRUD (allocations later) |
 | Exchange Rates | 4 | 4 | CRUD |
-| Market Data | 14 | 2 | Search + sync (rest later) |
-| Assets | 6 | 2 | List + profile |
+| Market Data | 14 | 10 | Search, sync, quotes history/latest/update/delete, providers, provider settings, exchanges |
+| Assets | 6 | 6 | List, profile, create, update profile, quote-mode, delete |
 | Allocations | 2 | 2 | Allocations + holdings by category |
-| Contribution Limits | 5 | 0 | Phase 5 |
-| Taxonomies | 16 | 0 | Phase 5 |
-| Health | 8 | 0 | Phase 5 |
+| Contribution Limits | 5 | 5 | CRUD + deposits calculation |
+| Taxonomies | 16 | 8 | Taxonomy + category CRUD (import/export + assignments still TODO) |
+| Health | 8 | 4 | Status, check, dismiss, restore (fix/config still TODO) |
 | AI Chat | 10 | 0 | Future |
 | AI Providers | 4 | 0 | Future |
 | Addons | 16 | 0 | Future |
@@ -203,4 +207,4 @@ Matching the Wealthfolio React frontend:
 | Secrets | 3 | 0 | Future |
 | Custom Providers | 5 | 0 | Future |
 | Connect/Sync | 59 | 0 | Future (feature-gated) |
-| **Total** | **~200** | **~41** | **~20% for MVP** |
+| **Total** | **~200** | **~71** | **~36% — Phase 5 coverage** |

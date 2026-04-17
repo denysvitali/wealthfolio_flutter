@@ -242,6 +242,17 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    final session = _session;
+    if (session != null) {
+      // Best-effort: tell the server to invalidate the cookie. Ignore
+      // failures — the local state must be cleared regardless so the user
+      // isn't stuck on an authenticated screen after a network error.
+      try {
+        await _api.signOut(session);
+      } on WealthfolioException {
+        // Swallowed intentionally — local sign-out is authoritative.
+      }
+    }
     Sentry.configureScope((scope) {
       scope.setUser(null);
     });
